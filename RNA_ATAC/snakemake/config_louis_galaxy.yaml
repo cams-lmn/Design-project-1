@@ -1,0 +1,611 @@
+######################
+## Global variables ##
+######################
+
+samples: ["d0","d1","d3","d5","d7","d10","d14","d18","DE","NE","AME_E","AME_L"]
+
+#################
+## Directories ##
+#################
+
+directories:
+    base: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts
+    rna: /data/homes/louisc/Project_Babraham/RNA
+    atac: /data/homes/louisc/Project_Babraham/ATAC/archR
+    pw: /data/homes/louisc/Project_Babraham/pathways
+    archr_directory: /data/homes/louisc/Project_Babraham/ATAC/archR
+    results: /data/homes/louisc/Project_Babraham/RNA_ATAC
+    logs: /data/homes/louisc/Project_Babraham/RNA_ATAC_logs
+    chipseq: /data/homes/louisc/Project_Babraham/ChipSeq
+
+###############
+## Resources ##
+###############
+
+resources:
+    python: /opt/anaconda/Anaconda3/envs/python_Babraham/bin/python
+    TFs_file: /data/homes/louisc/Project_Babraham/TFs.txt
+
+#############
+## Scripts ##
+#############
+
+scripts:
+    # Mofa
+    prepare_mofa: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/mofa/1_prepare_mofa.R
+    run_mofa: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/mofa/2_run_mofa.R
+    plot_mofa: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/mofa/3_plot_mofa.R
+
+    # Clustering
+    clustering: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/clustering/clustering.R
+
+    # Pseudobulk
+    create_pseudobulk_rna: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/pseudobulk/pseudobulk_rna.R
+    create_pseudobulk_atac: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/pseudobulk/pseudobulk_atac.R
+    create_pseudobulk_replicates: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/pseudobulk/pseudobulk_with_replicates.R
+
+    # Differential analysis
+    differential_analysis_pseudobulk: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/differential/differential_analysis.R
+    marker_TFs: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/differential/marker_TFs.R
+    gene_set_analysis: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/differential/gene_set_analysis.R
+
+    # Create BigWig files
+    create_bigwig: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/processing/create_bigwig.R
+
+    # Metacells
+    convert_sce_to_anndata: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/metacells/1_convert_sce_to_anndata.R
+    create_metacells: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/metacells/2_create_metacells.py
+    aggregate_metacells: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/metacells/3_aggregate_metacells.R
+    metacells_stats: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/metacells/4_metacells_stats.R
+
+    # RNA vs Acc
+    cor_expr_vs_acc_pseudobulk: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/rna_vs_acc/cor_expr_vs_acc_pseudobulk.R
+    cor_expr_vs_acc_metacells: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/rna_vs_acc/cor_expr_vs_acc_metacells.R
+
+    cor_TFexpr_vs_acc_pseudobulk: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/rna_vs_acc/cor_TFexpr_vs_acc_pseudobulk.R
+    cor_TFexpr_vs_acc_metacells: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/rna_vs_acc/cor_TFexpr_vs_acc_metacells.R
+
+    # Virtual ChipSeq
+    virtual_chipseq_pseudobulk: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/virtual_chipseq/create_virtual_chipseq_library_pseudobulk.R
+    virtual_chipseq_metacells: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/virtual_chipseq/create_virtual_chipseq_library_metacells.R
+    compare_virtual_chipseq: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/virtual_chipseq/virtual_chipseq_compare_pseudobulk_vs_metacells.R
+    validation_virtual_chipseq: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/virtual_chipseq/validation_virtual_chipseq.R
+
+    # Chromvar
+    run_chromvar_pseudobulk: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/chromvar/run_chromvar_pseudobulk.R
+    run_chromvar_chip_pseudobulk: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/chromvar/run_chromvar_chip_pseudobulk.R
+
+    # RNA vs Chromvar
+    cor_rna_vs_chromvar_pseudobulk: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/rna_vs_chromvar/cor_rna_vs_chromvar_per_gene_pseudobulk.R
+    rna_vs_chromvar_pseudobulk_per_cluster: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/rna_vs_chromvar/rna_vs_chromvar_pseudobulk_per_cluster.R
+
+    cor_rna_vs_chromvar_chip_pseudobulk: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/rna_vs_chromvar_chip/cor_rna_vs_chromvar_chip_per_gene_pseudobulk.R
+    rna_vs_chromvar_chip_pseudobulk_per_cluster: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/rna_vs_chromvar_chip/rna_vs_chromvar_chip_pseudobulk_per_cluster.R
+
+    # Infer trajectory
+    infer_trajectory: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/trajectory/Infer_trajectory.R
+
+    # Pseudotime
+    pseudotime_plots: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/trajectory/Pseudotime_plots.R
+
+    # Coexpression
+    coexpression_TF_vs_gene: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/coexpression/coexpression_TF_vs_gene.R
+
+    # Link TF to genes
+    link_TF2genes_chip: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/link_TF2genes_virtual_chip.R
+
+    # GRN
+    build_GRN_metacells_trajectory: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/build_GRN_metacells_trajectory.R
+    plot_GRN_metacells_trajectory: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/plot_GRN_metacells_trajectory.R
+    plot_UMAP_GRN_metacells_trajectory: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/plot_UMAP_GRN_metacells_trajectory.R
+    GRN_interaction_plots: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/GRN_interaction_plots.R
+
+    # Infer signalling network
+    cellPhoneDB: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/Cell_interactions/CellPhoneDB.py
+    infer_signalling_interactions_NicheNet: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/Cell_interactions/Infer_signalling_interactions_NicheNet.R
+
+    # GRN incl signalling
+    build_GRN_metacells_signalling_trajectory: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/build_GRN_metacells_signalling_trajectory.R
+    plot_GRN_metacells_signalling_trajectory: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/plot_GRN_metacells_signalling_trajectory.R
+    plot_UMAP_GRN_metacells_signalling_trajectory: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/plot_UMAP_GRN_metacells_signalling_trajectory.R
+
+    # Signalling analyses
+    heatmap_NicheNet_framework: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/Cell_interactions/Heatmap_NicheNet_framework.R
+
+    # GRN on request
+    plot_UMAP_GRN_metacells_trajectory_goi: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/plot_UMAP_GRN_metacells_trajectory_goi.R
+
+    # Velocities
+    create_anndata_from_loom_files: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/velocity/create_anndata_from_loom_files.py
+    run_scvelo: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/velocity/run_scvelo.py
+    scvelo_analysis_cells: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/velocity/scvelo_analysis_cells.py
+
+    # In silico knockouts
+    insilico_KO: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/insilico_KO.py
+    insilico_KO_ownGRN: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/insilico_KO_ownGRN.R
+
+    # In silico continuous expression
+    insilico_CE: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/insilico_CE.py
+
+    # In silico overexpression
+    insilico_OE: /data/homes/louisc/Project_Babraham/RNA_ATAC/scripts/GRN/insilico_OE.py
+
+################
+## Parameters ##
+################
+
+prepare_mofa:
+    atac_matrix: "PeakMatrix"
+    atac_matrix_file: "/data/homes/louisc/Project_Babraham/ATAC/archR/Matrices/PeakMatrix_summarized_experiment.rds"
+    nfeatures_atac: 25000
+    nfeatures_rna: 5000
+
+run_mofa:
+    n_factors: 30
+    incl_samples: [ "nodiff", "all" ]
+#    incl_samples: "nodiff"
+#    rna_dimred: "/data/homes/louisc/Project_Babraham/RNA_ATAC/mofa/rna.mtx"
+#    atac_dimred: "/data/homes/louisc/Project_Babraham/RNA_ATAC/mofa/atac_tfidf.mtx"
+
+plot_mofa:
+    n_factors: 30
+    incl_samples: [ "nodiff", "all" ]
+#    incl_samples: "nodiff"
+
+clustering:
+    n_factors: 30
+    am_clusters: 6 
+    reorder_clusters: [ 3, 5, 2, 6, 1, 4 ]
+    incl_samples: "nodiff"
+    atac_matrix: "PeakMatrix"
+
+create_pseudobulk_rna:
+    sce: "/data/homes/louisc/Project_Babraham/RNA/SingleCellExperiment.rds"
+    group_by: [ "cluster", "batch" ]
+    normalisation_method: "cpm"
+
+create_pseudobulk_atac:
+    group_by: "cluster"
+    matrix: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    normalisation_method: "cpm"
+
+create_pseudobulk_replicates:
+    sce: "/data/homes/louisc/Project_Babraham/RNA/SingleCellExperiment.rds"
+    atac_matrices: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    fraction_cells_per_replicate: 0.30
+    min_cells: 25
+    nrep: 5
+    group_by: "cluster"
+
+differential_analysis_pseudobulk:
+    min_expr: 4
+    min_cdr: 0.30
+    cluster_ids: [ 1, 2, 3, 4, 5, 6 ]
+    matrix: [ "RNA", "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    group_by: "cluster"
+
+gene_set_analysis:
+    matrix: [ "RNA", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    group_by: "cluster"
+
+marker_TFs:
+    matrix: [ "RNA" ]
+    # matrix: [ "RNA", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    incl_samples: "nodiff"
+    group_by: "cluster"
+
+create_bigwig:
+    norm_method: "ReadsInTSS"
+    min_cells: 100
+    tile_size: 100
+    group_by: "cluster"
+    metadata: "/data/homes/louisc/Project_Babraham/RNA_ATAC/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz"
+
+convert_sce_to_anndata:
+    sce: "/data/homes/louisc/Project_Babraham/RNA/SingleCellExperiment.rds"
+    incl_samples: "nodiff"
+
+create_metacells:
+    metadata: "/data/homes/louisc/Project_Babraham/RNA/mapping/sample_metadata_after_doublets.txt.gz"
+    percent_metacells: 0.0133
+    n_features: 1500
+    n_pcs: 15
+    incl_samples: "nodiff"
+
+aggregate_metacells:
+    metadata_rna: "/data/homes/louisc/Project_Babraham/RNA/mapping/sample_metadata_after_doublets.txt.gz"
+    metadata_atac: "/data/homes/louisc/Project_Babraham/ATAC/archR/qc/sample_metadata_after_qc.txt.gz"
+    metadata_cluster: "/data/homes/louisc/Project_Babraham/RNA_ATAC/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz"
+    sce: "/data/homes/louisc/Project_Babraham/RNA/SingleCellExperiment.rds"
+    matrices: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    incl_samples: "nodiff"
+    metacell_min_reads: 750000 #7.5e5
+    metacell_min_frags: 600000 #6e5
+
+metacells_stats:
+    incl_samples: "nodiff"
+
+cor_expr_vs_acc_pseudobulk:
+    which_clusters: [ "all", "no6" ]
+    n_clusters: 7
+    min_cor: [ 0.25, 0.5 ]
+    distance: 50000 # 5e4
+    max_pval: 0.01
+    force_rerun: FALSE
+
+cor_expr_vs_acc_metacells:
+    which_clusters: "all"
+    n_clusters: 7
+    min_cor: [ 0.25, 0.5 ]
+    distance: 50000 # 5e4
+    max_pval: 0.01
+    force_rerun: FALSE
+
+cor_TFexpr_vs_acc_pseudobulk:
+    which_clusters: [ "all", "no6" ]
+    force_rerun: FALSE
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+
+cor_TFexpr_vs_acc_metacells:
+    which_clusters: "all"
+    force_rerun: FALSE
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+
+virtual_chipseq_pseudobulk:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+    min_number_peaks: 50
+
+virtual_chipseq_metacells:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+    min_number_peaks: 50
+
+compare_virtual_chipseq:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+    min_chip_score: 0.06
+
+validation_virtual_chipseq_pseudobulk:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+    peak_extension: 100
+
+validation_virtual_chipseq_metacells:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+    peak_extension: 100
+
+run_chromvar_pseudobulk:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+    min_number_peaks: 25
+
+run_chromvar_chip_pseudobulk:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+    min_number_peaks: 25
+    min_chip_score: 0.06
+
+cor_rna_vs_chromvar_pseudobulk:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+
+rna_vs_chromvar_pseudobulk_per_cluster:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+
+cor_rna_vs_chromvar_chip_pseudobulk:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+
+rna_vs_chromvar_chip_pseudobulk_per_cluster:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+
+infer_trajectory:
+    celltype_label: "cluster"
+    trajectory_name: "N2P"
+    incl_samples: "nodiff"
+
+pseudotime_plots:
+    incl_samples: "nodiff"
+    incl_samples: "nodiff"
+    trajectory_name: "N2P"
+    # full set # goi: ["KLF4" , "KLF5" , "SPIC" , "TFCP2L1" , "DNMT3L" , "FGF4" , "KLF17" , "SOX15" , "DPPA3" , "DPPA5" , "SALL4" , "TFAP2C" , "FBP1" , "ARGFX" , "DLL3" , "FOXH1" , "NODAL" , "GDF3" , "SPP1" , "PRDM14" , "DPPA2" , "DPPA4" , "ETV4" , "ETV5" , "SALL2" , "SOX11" , "ZIC2" , "SFRP2" , "MYC" , "FZD7" , "FGF2" , "HES1" , "FZD2" , "OTX2" , "FST" , "TCF15" , "CDH2" , "TCF7L1" , "SALL1" , "PODXL" , "KHDC3L" , "POU5F1" , "NANOG" , "SOX2", "GBX2" ]
+    # set paper (unordered)
+    # goi: [ "KLF4" , "KLF5" , "SPIC" , "TFCP2L1" , "DNMT3L" , "FGF4" , "KLF17" , "DPPA3" , "DPPA5" , "SALL4" , "FBP1" , "ARGFX" , "DLL3" , "NODAL" , "GDF3" , "SPP1" , "PRDM14" , "ETV4" , "ETV5" , "SALL2" , "SOX11" , "ZIC2" , "SFRP2" , "MYC" , "FGF2" , "HES1" , "FZD7" , "FST" , "TCF15" , "CDH2" , "TCF7L1" , "SALL1" , "PODXL" , "KHDC3L" , "POU5F1" , "NANOG" , "SOX2" , "GBX2" ]
+    # set paper (ordered)
+    goi: [ "SPIC" , "DPPA5" , "DPPA3" , "KLF4" , "DNMT3L" , "ARGFX" , "TFCP2L1" , "PRDM14" , "FBP1" , "KLF17" , "KLF5" , "GDF3" , "FGF4" , "NODAL" , "DLL3" , "GBX2" , "ETV4" , "PODXL" , "SFRP2" , "ETV5" , "FGF2" , "HES1" , "SALL4" , "ZIC2" , "SOX11", "SALL2", "FST" , "MYC" , "SPP1" , "FZD7" , "TCF15" , "CDH2" , "TCF7L1" , "SALL1" ]
+    goi_ordered: TRUE
+    gap_rows: [ 14 , 16 ]
+    max_pval: 0.10
+    min_coef: 0.24
+
+coexpression_TF_vs_gene:
+    cor_test: "pearson"
+
+link_TF2genes_chip:
+    motif_ann: [ "CISBP", "JASPAR2020"]
+    max_distance: 50000  #5e4
+    min_chip_score: 0.06
+
+build_GRN_metacells_trajectory:
+    trajectory_name: "N2P"
+    max_distance: 50000  #5e4
+    min_chip_score: "0.06"
+    full: [ "TF", "full" ]
+    # min_chip_score: [0.06, 0.10, 0.11, 0.15]
+
+plot_GRN_metacells_trajectory:
+    trajectory_name: "N2P"
+    force: TRUE
+    min_chip_score: 0.06
+    # min_chip_score: [0.06, 0.10, 0.11, 0.15]
+    min_coef: 0.24
+    max_pval: 0.10
+    full: ["TF"]
+
+plot_UMAP_GRN_metacells_trajectory:
+    trajectory_name: "N2P"
+    force: TRUE
+    min_chip_score: 0.06
+    # min_chip_score: [0.06, 0.10, 0.11, 0.15]
+    max_pval: 0.10
+    min_coef: 0.24
+    max_distance: 50000  #5e4
+    full: ["TF"]
+
+plot_UMAP_GRN_metacells_trajectory_goi:
+    trajectory_name: "N2P"
+    force: TRUE
+    min_chip_score: 0.06
+    # min_chip_score: [0.06, 0.10, 0.11, 0.15]
+    max_pval: 0.10
+    min_coef: 0.24
+    max_distance: 50000  #5e4
+    goi_name: [ "shortlist" , "longerlist" , "evenlongerlist" , "longerthanevenlonglist" ]
+    full: ["TF"]
+
+GRN_interaction_plots:
+    trajectory_name: "N2P"
+    min_chip_score: 0.06
+    # min_chip_score: [0.06, 0.10, 0.11, 0.15]
+    min_coef: [ 0.25, 0.50 ]
+    full: ["TF"]
+
+cellPhoneDB:
+    cpdb_version: "v5.0.0"
+    incl_samples: "nodiff"
+    celltypes_to_use: [ 1 , 2 , 3 , 4 , 5 ]
+
+heatmap_NicheNet_framework:
+    grn_type: [ "TFandSign" ]
+    grn_method: [ "alt7" ]
+    merged: [ "merged" ]
+    ligands_to_consider: [ "CellPhoneDB" ]
+    targets_to_consider: [ "markerTF" , "DEGenes" , "Expr" ]
+
+infer_signalling_interactions_NicheNet:
+    grn_method : [ "alt7" ]
+    merged : ["merged" ]
+    trajectory_name: "N2P"
+    min_coef: 0.24
+    plot_correlations: FALSE
+
+build_GRN_metacells_signalling_trajectory:
+    trajectory_name: "N2P"
+    max_distance: 50000  #5e4
+    min_chip_score: 0.06
+    min_coef: 0.24
+    grn_type: [ "TFandSign" ]
+    grn_method : [ "alt7" ]
+    merged : [ "merged" ]
+    plot_correlations: FALSE
+    
+plot_GRN_metacells_signalling_trajectory:
+    trajectory_name: "N2P"
+    force: TRUE
+    min_chip_score: 0.06
+    # min_chip_score: [0.06, 0.10, 0.11, 0.15]
+    min_coef: 0.24
+    max_pval: 0.10
+    grn_type: [ "TFandSign" ]
+    grn_method : [ "alt7" ]
+    merged : [ "merged" ]
+
+plot_UMAP_GRN_metacells_signalling_trajectory:
+    trajectory_name: "N2P"
+    force: TRUE
+    min_chip_score: 0.06
+    # min_chip_score: [0.06, 0.10, 0.11, 0.15]
+    max_pval: 0.10
+    min_coef: 0.24
+    max_distance: 50000  #5e4
+    grn_type: [ "TFandSign" ]
+    grn_method : [ "alt7" ]
+    merged : [ "merged" ]
+
+create_anndata_from_loom_files:
+    incl_samples: "nodiff"
+
+run_scvelo:
+    incl_samples: "nodiff"
+    ncores: 15
+
+scvelo_analysis_cells:
+    incl_samples: "nodiff"
+
+insilico_KO:
+    incl_samples: "nodiff"
+    min_chip_score: [ 0.06, 0.10, 0.15 ]
+    max_distance: 50000  #5e4
+    genes: ["KLF5", "TFCP2L1", "NR5A2", "HNF4G", "ESRRB", "ID3"]
+
+insilico_KO_ownGRN:
+    trajectory_name: "N2P"
+    force: FALSE
+    min_chip_score: [ 0.06, 0.10, 0.15 ]
+    min_coef: [ 0.25, 0.50 ]
+    max_pval: 0.10
+
+insilico_CE:
+    incl_samples: "nodiff"
+    min_chip_score: [ 0.06, 0.10, 0.15 ]
+    max_distance: 50000  #5e4
+    genes: ["KLF5", "TFCP2L1", "NR5A2", "HNF4G", "ESRRB", "ID3"]
+
+insilico_OE:
+    incl_samples: "nodiff"
+    min_chip_score: [ 0.06, 0.10, 0.15 ]
+    max_distance: 50000  #5e4
+    genes: ["KLF5", "TFCP2L1", "NR5A2", "HNF4G", "ESRRB", "ID3"]
+
+
+###########
+## Slurm ##
+###########
+
+slurm:  # memory in MB
+    prepare_mofa:
+        memory: 50000
+        threads: 1
+    run_mofa:
+        memory: 50000
+        threads: 1
+    plot_mofa:
+        memory: 50000
+        threads: 1
+    clustering:
+        memory: 50000
+        threads: 1
+    create_pseudobulk_rna:
+        memory: 50000
+        threads: 1
+    create_pseudobulk_atac:
+        memory: 50000
+        threads: 1
+    create_pseudobulk_replicates:
+        memory: 50000
+        threads: 1
+    differential_analysis_pseudobulk:
+        memory: 50000
+        threads: 1
+    gene_set_analysis:
+        memory: 50000
+        threads: 1
+    marker_TFs:
+        memory: 50000
+        threads: 1
+    create_bigwig:
+        memory: 50000
+        threads: 1
+    convert_sce_to_anndata:
+        memory: 50000
+        threads: 1
+    create_metacells:
+        memory: 50000
+        threads: 20
+    metacells_stats:
+        memory: 50000
+        threads: 1
+    cor_expr_vs_acc_pseudobulk:
+        memory: 50000
+        threads: 1
+    cor_expr_vs_acc_metacells:
+        memory: 50000
+        threads: 1
+    cor_TFexpr_vs_acc_pseudobulk:
+        memory: 50000
+        threads: 1
+    cor_TFexpr_vs_acc_metacells:
+        memory: 50000
+        threads: 1
+    virtual_chipseq_pseudobulk:
+        memory: 50000
+        threads: 10
+    virtual_chipseq_metacells:
+        memory: 50000
+        threads: 10
+    compare_virtual_chipseq:
+        memory: 50000
+        threads: 1
+    validation_virtual_chipseq_pseudobulk:
+        memory: 50000
+        threads: 1
+    validation_virtual_chipseq_metacells:
+        memory: 50000
+        threads: 1
+    run_chromvar_pseudobulk:
+        memory: 50000
+        threads: 1
+    run_chromvar_chip_pseudobulk:
+        memory: 50000
+        threads: 1
+    cor_rna_vs_chromvar_pseudobulk:
+        memory: 50000
+        threads: 1
+    rna_vs_chromvar_pseudobulk_per_cluster:
+        memory: 50000
+        threads: 1
+    cor_rna_vs_chromvar_chip_pseudobulk:
+        memory: 50000
+        threads: 1
+    rna_vs_chromvar_chip_pseudobulk_per_cluster:
+        memory: 50000
+        threads: 1
+    infer_trajectory:
+        memory: 50000
+        threads: 1
+    pseudotime_plots:
+        memory: 50000
+        threads: 1
+    coexpression_TF_vs_gene:
+        memory: 50000
+        threads: 1
+    link_TF2genes_chip:
+        memory: 50000
+        threads: 1
+    build_GRN_metacells_trajectory:
+        memory: 50000
+        threads: 40
+    plot_GRN_metacells_trajectory:
+        memory: 50000
+        threads: 1
+    plot_UMAP_GRN_metacells_trajectory:
+        memory: 50000
+        threads: 1
+    plot_UMAP_GRN_metacells_trajectory_goi:
+        memory: 50000
+        threads: 1
+    GRN_interaction_plots:
+        memory: 50000
+        threads: 1
+    cellPhoneDB:
+        memory: 50000
+        threads: 1
+    infer_signalling_interactions_NicheNet:
+        memory: 50000
+        threads: 40
+    build_GRN_metacells_signalling_trajectory:
+        memory: 50000
+        threads: 40
+    plot_GRN_metacells_signalling_trajectory:
+        memory: 50000
+        threads: 1
+    plot_UMAP_GRN_metacells_signalling_trajectory:
+        memory: 50000
+        threads: 1
+    heatmap_NicheNet_framework:
+        memory: 50000
+        threads: 1
+    create_anndata_from_loom_files:
+        memory: 50000
+        threads: 1
+    run_scvelo:
+        memory: 50000
+        threads: 1
+    scvelo_analysis_cells:
+        memory: 50000
+        threads: 1
+    insilico_KO:
+        memory: 50000
+        threads: 1
+    insilico_KO_ownGRN:
+        memory: 50000
+        threads: 1
+    insilico_CE:
+        memory: 50000
+        threads: 1
+    insilico_OE:
+        memory: 50000
+        threads: 1

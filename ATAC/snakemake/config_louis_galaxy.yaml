@@ -1,0 +1,211 @@
+######################
+## Global variables ##
+######################
+
+samples: ["d0","d1","d3","d5","d7","d10","d14","d18","DE","NE","AME_E","AME_L"]
+
+#################
+## Directories ##
+#################
+
+directories:
+    base: /data/homes/louisc/Project_Babraham/ATAC/scripts
+    original_data: /data/homes/louisc/Project_Babraham/results_sierra
+    archr_directory: /data/homes/louisc/Project_Babraham/ATAC/archR
+    results: /data/homes/louisc/Project_Babraham/ATAC/archR
+    logs: /data/homes/louisc/Project_Babraham/ATAC_logs
+    
+#############
+## Scripts ##
+#############
+
+scripts:
+    # Basic processing
+    create_arrow_files: /data/homes/louisc/Project_Babraham/ATAC/scripts/processing/0_create_arrow_files.R
+    create_archr_project: /data/homes/louisc/Project_Babraham/ATAC/scripts/processing/1_create_archr_project.R
+    create_archr_metadata: /data/homes/louisc/Project_Babraham/ATAC/scripts/processing/2_create_archr_metadata.R
+
+     # QC
+    qc_archr: /data/homes/louisc/Project_Babraham/ATAC/scripts/processing/3_qc_archr.R
+
+    # Add group coverages
+    add_group_coverage: /data/homes/louisc/Project_Babraham/ATAC/scripts/pseudobulk/1_add_group_coverage.R
+
+    # Peak calling
+    peak_calling: /data/homes/louisc/Project_Babraham/ATAC/scripts/peak_calling/1_peak_calling.R
+    link_peaks_to_genes: /data/homes/louisc/Project_Babraham/ATAC/scripts/peak_calling/2_link_peaks2genes.R
+    add_background_peaks: /data/homes/louisc/Project_Babraham/ATAC/scripts/peak_calling/3_add_background_peaks.R
+
+    # Dimensionality reduction
+    dimensionality_reduction: /data/homes/louisc/Project_Babraham/ATAC/scripts/dimensionality_reduction/dimensionality_reduction.R
+
+    # Clustering
+    clustering: /data/homes/louisc/Project_Babraham/ATAC/scripts/clustering/clustering.R
+
+    # Add gene scores
+    add_gene_scores: /data/homes/louisc/Project_Babraham/ATAC/scripts/gene_scores/add_gene_scores.R
+
+    # Save matrices
+    save_atac_matrices: /data/homes/louisc/Project_Babraham/ATAC/scripts/processing/save_atac_matrices.R
+
+    # Pseudobulk
+    pseudobulk_atac_with_replicates: /data/homes/louisc/Project_Babraham/ATAC/scripts/pseudobulk/pseudobulk_atac_with_replicates.R
+
+    # Differential expression analysis
+    differential_accessibility_pseudobulk: /data/homes/louisc/Project_Babraham/ATAC/scripts/differential/differential_accessibility_pseudobulk.R
+
+    # Add motifs
+    add_motif_annotation: /data/homes/louisc/Project_Babraham/ATAC/scripts/processing/add_motif_annotation.R
+
+###############
+## Resources ##
+###############
+
+resources:
+    genome: hg38
+    cell_metadata: /data/homes/louisc/Project_Babraham/RNA/mapping/sample_metadata_after_doublets.txt.gz
+    gene_metadata: /data/homes/louisc/Project_Babraham/Hsapiens_genes_BioMart.87.txt
+
+################
+## Parameters ##
+################
+
+create_arrow_files:
+    min_fragments: 1000
+    max_fragments: 10000000 # 1e7
+    min_tss_score: 2.5
+
+qc_archr:
+    min_tss_enrichment : 3
+    max_tss_enrichment : 25
+    min_number_fragments : 6000
+    max_number_fragments : 1000000 # 1e6
+    max_blacklist_ratio : 0.03
+    cutoff_number_fragments : 1584893 # 10^(6.2)
+    cutoff_tss_enrichment: 35
+    metadata_rna: /data/homes/louisc/Project_Babraham/RNA/mapping/sample_metadata_after_doublets.txt.gz
+
+add_group_coverage:
+    group_by: "sample"
+    min_cells: 100
+    max_cells: 5000
+
+peak_calling:
+    group_by: "sample"
+    pathToMacs2: "/opt/anaconda/Anaconda3/envs/Babraham/bin/macs2"
+    pvalue_cutoff: 0.001
+    extend_summits: 300
+    min_cells: 100
+
+link_peaks_to_genes:
+    gene_window: 100000 # 1e5
+
+add_background_peaks:
+    method: "chromVAR"
+    number_background_peaks: 50
+
+dimensionality_reduction:
+    matrix: "PeakMatrix"
+    ndims: [ 15 , 25 , 30 , 50 ]
+    nfeatures: [ 15000 , 25000 ]
+    umap_n_neighbors: 25
+    umap_min_dist: 0.25
+    batch_variable: [ "SeqRun", "None" ]
+    batch_method: "Harmony"
+    colour_by: [ "sample", "TSSEnrichment_atac", "log_nFrags_atac", "Phase" ]
+    incl_samples: [ "all", "nodiff" ]
+
+clustering:
+    matrix: "PeakMatrix"
+    ndims: 25
+    nfeatures: 15000
+    umap_n_neighbors: 25
+    umap_min_dist: 0.25
+    resolution: [ 0.15, 0.2, 0.25 ]
+    batch_variable: "SeqRun"
+    batch_method: "Harmony"
+    incl_samples: "nodiff"
+    reorder_clusters: [ 1 , 6 , 5 , 4 , 2 , 3 ]
+    # reorder_clusters: [ 1, 2, 3, 6, 5, 4 ]
+
+# add_gene_scores
+
+save_atac_matrices:
+    matrix: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+
+pseudobulk_atac_with_replicates:
+    matrix: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    group_by: "Clusters"
+    fraction_cells_per_replicate: 0.30
+    min_cells: 25
+    nrep: 5
+    metadata: "/data/homes/louisc/Project_Babraham/ATAC/archR/clustering/PeakMatrix/batch_correction_SeqRun_Harmony/cluster_res0.15_nodiff/sample_metadata_after_clustering.txt.gz"
+#    # the following parameters are decided after evaluating cluster results and determine which clustering will be used for downstream analysis
+#    batch_variable: "SeqRun"
+#    batch_method: "Harmony"
+#    res: 0.15
+#    incl_samples: "nodiff"
+
+differential_accessibility_pseudobulk:
+    matrix: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    group_by: "Clusters"
+    cluster_ids: [ "C1", "C2", "C3", "C4", "C5"]
+    logfc_cutoff: 1.00
+    fdr_cutoff: 0.01
+    min_cdr: 0.30
+
+add_motif_annotation:
+    motif_annotation: [ "CISBP", "JASPAR2020" ]
+    cutoff: 0.0001
+    width: 7
+
+###########
+## Slurm ##
+###########
+
+slurm:  # memory in MB
+    create_arrow_files: 
+        threads: 1
+        memory: 5000
+    create_archr_project:
+        threads: 10
+        memory: 5000
+    create_archr_metadata:
+        threads: 10
+        memory: 5000
+    qc_archr:
+        threads: 10
+        memory: 5000
+    add_group_coverage:
+        threads: 10
+        memory: 10000
+    peak_calling:
+        threads: 10
+        memory: 10000
+    link_peaks_to_genes:
+        threads: 1
+        memory: 10000
+    add_background_peaks:
+        threads: 1
+        memory: 10000
+    dimensionality_reduction:
+        threads: 1
+        memory: 55000
+    clustering:
+        threads: 1
+        memory: 55000
+    add_gene_scores:
+        threads: 10
+        memory: 55000
+    save_atac_matrices:
+        threads: 1
+        memory: 55000
+    pseudobulk_atac_with_replicates:
+        threads: 1
+        memory: 55000
+    differential_accessibility_pseudobulk:
+        threads: 1
+        memory: 55000
+    add_motif_annotation:
+        threads: 10
+        memory: 55000

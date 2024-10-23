@@ -1,0 +1,1309 @@
+import os
+from re import search
+import getpass
+
+############
+## Config ##
+############
+
+configfile: "config_louis_galaxy.yaml"
+
+# validate(config, schema="schemas/config.schema.yaml")
+
+#############################################
+## Wildcard constraints to avoid ambiguity ##
+#############################################
+
+# honestly I don't understand why do I have to do this, but otherwise I get ambiguity and strange wildcards
+
+wildcard_constraints:
+    motif_ann = '|'.join([re.escape(x) for x in config["cor_TFexpr_vs_acc_pseudobulk"]["motif_ann"]]),
+    full = '|'.join([re.escape(x) for x in config["build_GRN_metacells_trajectory"]["full"]]),
+    # celltypeA = '|'.join([re.escape(x) for x in config["celltypes"]]),
+    # celltypeB = '|'.join([re.escape(x) for x in config["celltypes"]]),
+    # group_by = '|'.join([re.escape(x) for x in config["pseudobulk_rna"]["group_by"]])
+
+##################################
+## Filter wildcard combinations ##
+##################################
+
+# from itertools import product
+
+# def filter_combinator(combinator, blacklist):
+    # def filtered_combinator(*args, **kwargs):
+        # for wc_comb in combinator(*args, **kwargs):
+            # if frozenset(wc_comb) not in blacklist:
+                # yield wc_comb
+    # return filtered_combinator
+
+# forbidden = {
+    # frozenset({("celltypeA",i),("celltypeB",i)}) for i in config["celltypes"]
+    # frozenset({("celltypeA", "Epiblast"), ("celltypeB", "Epiblast")}),
+    # frozenset({("text", "C"), ("num", 2)})
+# }
+
+# filtered_product_celltypes = filter_combinator(product, forbidden)
+
+###########
+## Rules ##
+###########
+
+rule all:
+    input:
+        # Mofa
+#       config["directories"]["results"]+"/mofa/sample_metadata.txt.gz",
+        expand(config["directories"]["results"]+"/mofa/mofa_{incl_samples}.rds",
+            incl_samples = config["run_mofa"]["incl_samples"]
+        ),
+        expand(config["directories"]["results"]+"/mofa/pdf/mofa_umap_sample_{incl_samples}.pdf",
+            incl_samples = config["plot_mofa"]["incl_samples"]
+        ),
+
+        # Clustering
+        expand(config["directories"]["results"]+"/clustering/{matrix}/sample_metadata_{incl_samples}_after_clustering.txt.gz",
+            matrix = config["clustering"]["atac_matrix"],
+            incl_samples = config["clustering"]["incl_samples"]
+        ),
+
+        # Pseudobulk
+        expand(config["directories"]["results"]+"/pseudobulk/{group_by}/SingleCellExperiment_pseudobulk.rds",
+            group_by = config["create_pseudobulk_rna"]["group_by"]
+        ),
+        expand(config["directories"]["results"]+"/pseudobulk/{group_by}/{matrix}_pseudobulk_summarized_experiment.rds",
+            group_by = config["create_pseudobulk_atac"]["group_by"],
+            matrix = config["create_pseudobulk_atac"]["matrix"]
+        ),
+        expand(config["directories"]["results"]+"/pseudobulk/{group_by}/cell2replicate.txt.gz",
+            group_by = config["create_pseudobulk_replicates"]["group_by"]
+        ),
+
+        # Differential analysis
+        expand(config["directories"]["results"]+"/pseudobulk/{group_by}/{matrix}/DE_res/DEG_overview.txt",
+            group_by = config["differential_analysis_pseudobulk"]["group_by"],
+            matrix = config["differential_analysis_pseudobulk"]["matrix"]
+        ),
+        expand(config["directories"]["results"]+"/pseudobulk/{group_by}/{matrix}/GSA/completed.txt",
+            group_by = config["gene_set_analysis"]["group_by"],
+            matrix = config["gene_set_analysis"]["matrix"]
+        ),
+
+        # Create bigwig files
+        expand(config["directories"]["results"]+"/GroupBigWigs/{group_by}/completed.txt",
+            group_by = config["create_bigwig"]["group_by"]
+        ),
+
+        # Metacells
+        expand(config["directories"]["results"]+"/anndata_{incl_samples}.h5ad",
+            incl_samples=config["convert_sce_to_anndata"]["incl_samples"]
+        ),
+        expand(config["directories"]["results"]+"/metacells/anndata_metacells_{incl_samples}.h5ad",
+            incl_samples=config["create_metacells"]["incl_samples"]
+        ),
+        expand(config["directories"]["results"]+"/metacells/metacells_metadata_{incl_samples}.txt.gz",
+            incl_samples=config["aggregate_metacells"]["incl_samples"]
+        ),
+        expand(config["directories"]["results"]+"/metacells/table_metacells_per_sample_{incl_samples}.txt",
+            incl_samples=config["metacells_stats"]["incl_samples"]
+        ),
+
+        # Marker TF
+        expand(config["directories"]["results"]+"/pseudobulk/{group_by}/{matrix}/marker_TFs/TF.markers.clusters.txt",
+            group_by = config["marker_TFs"]["group_by"],
+            matrix = config["marker_TFs"]["matrix"]
+        ),
+
+        # RNA vs Acc
+        expand(config["directories"]["results"]+"/rna_vs_acc/pseudobulk/gene_expr_vs_peak_acc/{which_clusters}/neg_corr_completed_{n_clusters}clusters_corr{correlation}.pdf",
+            which_clusters=config["cor_expr_vs_acc_pseudobulk"]["which_clusters"],
+            n_clusters=config["cor_expr_vs_acc_pseudobulk"]["n_clusters"],
+            correlation=config["cor_expr_vs_acc_pseudobulk"]["min_cor"]
+        ),
+        expand(config["directories"]["results"]+"/rna_vs_acc/metacells/gene_expr_vs_peak_acc/{which_clusters}/neg_corr_completed_{n_clusters}clusters_corr{correlation}.pdf",
+            which_clusters=config["cor_expr_vs_acc_metacells"]["which_clusters"],
+            n_clusters=config["cor_expr_vs_acc_metacells"]["n_clusters"],
+            correlation=config["cor_expr_vs_acc_metacells"]["min_cor"]
+        ),
+
+        expand(config["directories"]["results"]+"/rna_vs_acc/pseudobulk/TF_expr_vs_peak_acc/{which_clusters}/{motif_ann}_cor_TFexpr_vs_peakAcc_pseudobulk.txt.gz",
+            which_clusters=config["cor_TFexpr_vs_acc_pseudobulk"]["which_clusters"],
+            motif_ann=config["cor_TFexpr_vs_acc_pseudobulk"]["motif_ann"]
+        ),
+        expand(config["directories"]["results"]+"/rna_vs_acc/metacells/TF_expr_vs_peak_acc/{which_clusters}/{motif_ann}_cor_TFexpr_vs_peakAcc_metacells.txt.gz",
+            which_clusters=config["cor_TFexpr_vs_acc_metacells"]["which_clusters"],
+            motif_ann=config["cor_TFexpr_vs_acc_metacells"]["motif_ann"]
+        ),
+
+        # Virtual ChipSeq
+        expand(config["directories"]["results"]+"/virtual_chipseq/metacells/{motif_ann}/motifmatchr_virtual_chip.rds",
+            motif_ann=config["virtual_chipseq_metacells"]["motif_ann"]
+        ),
+        expand(config["directories"]["results"]+"/virtual_chipseq/comparison/{motif_ann}/pdf/lineplot_number_binding_sites_per_tf.pdf",
+            motif_ann=config["compare_virtual_chipseq"]["motif_ann"]
+        ),
+
+        # Infer trajectory
+        expand(config["directories"]["results"]+"/trajectories/{trajectory_name}/{trajectory_name}_trajectory_{incl_samples}.txt.gz",
+            trajectory_name=config["infer_trajectory"]["trajectory_name"],
+            incl_samples=config["infer_trajectory"]["incl_samples"]
+        ),
+
+        # Pseudotime
+        expand(config["directories"]["results"]+"/trajectories/{trajectory_name}/pseudotime_plots_completed_{trajectory_name}_{incl_samples}.txt",
+            trajectory_name=config["pseudotime_plots"]["trajectory_name"],
+            incl_samples=config["pseudotime_plots"]["incl_samples"]
+        ),
+
+        # Coexpression
+        expand(config["directories"]["results"]+"/coexpression/pseudobulk/correlation_matrix_{cor_test}_tf2gene.rds",
+            cor_test=config["coexpression_TF_vs_gene"]["cor_test"]
+        ),
+        expand(config["directories"]["results"]+"/coexpression/metacells/correlation_matrix_{cor_test}_tf2gene.rds",
+            cor_test=config["coexpression_TF_vs_gene"]["cor_test"]
+        ),
+
+        # Link TF to genes
+        expand(config["directories"]["results"]+"/gene_regulatory_network/metacells/{motif_ann}/TF2gene_after_virtual_chip.txt.gz",
+            motif_ann=config["link_TF2genes_chip"]["motif_ann"]
+        ),
+
+        # # Build and plot GRN
+        # expand(config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/global_chip_GRN_coef_score{min_chip_score}.txt.gz",
+        #     trajectory_name=config["build_GRN_metacells_trajectory"]["trajectory_name"],
+        #     min_chip_score=config["build_GRN_metacells_trajectory"]["min_chip_score"],
+        #     full=config["build_GRN_metacells_trajectory"]["full"]
+        # ),
+        # expand(config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/marker_TF/fig/Score{min_chip_score}_Coef{min_coef}/completed.txt",
+        #     trajectory_name=config["plot_GRN_metacells_trajectory"]["trajectory_name"],
+        #     min_chip_score=config["plot_GRN_metacells_trajectory"]["min_chip_score"],
+        #     min_coef=config["plot_GRN_metacells_trajectory"]["min_coef"],
+        #     full=config["plot_GRN_metacells_trajectory"]["full"]
+        # ),
+        # expand(config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/marker_TF/UMAP_fig/Score{min_chip_score}/completed.txt",
+        #     trajectory_name=config["plot_UMAP_GRN_metacells_trajectory"]["trajectory_name"],
+        #     min_chip_score=config["plot_UMAP_GRN_metacells_trajectory"]["min_chip_score"],
+        #     full=config["plot_UMAP_GRN_metacells_trajectory"]["full"]
+        # ),
+        # expand(config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/marker_TF/Interaction_plots/Score{min_chip_score}_Coef{min_coef}/completed.txt",
+        #     trajectory_name=config["GRN_interaction_plots"]["trajectory_name"],
+        #     min_chip_score=config["GRN_interaction_plots"]["min_chip_score"],
+        #     min_coef=config["GRN_interaction_plots"]["min_coef"],
+        #     full=config["GRN_interaction_plots"]["full"]
+        # ),
+
+        # # GRN on request
+        # expand(config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/{goi_name}/UMAP_fig/Score{min_chip_score}/completed.txt",
+        #     trajectory_name=config["plot_UMAP_GRN_metacells_trajectory_goi"]["trajectory_name"],
+        #     min_chip_score=config["plot_UMAP_GRN_metacells_trajectory_goi"]["min_chip_score"],
+        #     goi_name=config["plot_UMAP_GRN_metacells_trajectory_goi"]["goi_name"],
+        #     full=config["plot_UMAP_GRN_metacells_trajectory_goi"]["full"]
+        # ),
+
+        # Infer signalling networks
+        expand(config["directories"]["results"]+"/CellPhoneDb/CellPhone_res_stat_{version}_{incl_samples}.txt",
+            version=config["cellPhoneDB"]["cpdb_version"],
+            incl_samples=config["cellPhoneDB"]["incl_samples"]
+        ),
+        expand(config["directories"]["results"]+"/NicheNet/GRN_coef_signalling_{GRN_method}_to_add_{merged}.txt",
+            GRN_method=config["infer_signalling_interactions_NicheNet"]["grn_method"],
+            merged=config["infer_signalling_interactions_NicheNet"]["merged"]
+        ),
+
+        # Build and plot GRN (incl. signalling)
+        expand(config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{GRN_type}/{GRN_method}/{merged}/global_chip_GRN_sign_{GRN_method}_coef_score{min_chip_score}_{merged}.txt.gz",
+            trajectory_name=config["build_GRN_metacells_signalling_trajectory"]["trajectory_name"],
+            min_chip_score=config["build_GRN_metacells_signalling_trajectory"]["min_chip_score"],
+            GRN_method=config["build_GRN_metacells_signalling_trajectory"]["grn_method"],
+            GRN_type=config["build_GRN_metacells_signalling_trajectory"]["grn_type"],
+            merged=config["infer_signalling_interactions_NicheNet"]["merged"]
+        ),
+        expand(config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{GRN_type}/{GRN_method}/{merged}/fig/Score{min_chip_score}_Coef{min_coef}/completed.txt",
+            trajectory_name=config["plot_GRN_metacells_signalling_trajectory"]["trajectory_name"],
+            min_chip_score=config["plot_GRN_metacells_signalling_trajectory"]["min_chip_score"],
+            min_coef=config["plot_GRN_metacells_signalling_trajectory"]["min_coef"],
+            GRN_method=config["plot_GRN_metacells_signalling_trajectory"]["grn_method"],
+            GRN_type=config["plot_GRN_metacells_signalling_trajectory"]["grn_type"],
+            merged=config["plot_GRN_metacells_signalling_trajectory"]["merged"]
+        ),
+        expand(config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{GRN_type}/{GRN_method}/{merged}/UMAP_fig/Score{min_chip_score}/completed.txt",
+            trajectory_name=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["trajectory_name"],
+            min_chip_score=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["min_chip_score"],
+            min_coef=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["min_coef"],
+            GRN_method=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["grn_method"],
+            GRN_type=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["grn_type"],
+            merged=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["merged"]
+        ),
+
+        # Signalling analyses
+        expand(config["directories"]["results"]+"/NicheNet/Heatmaps/{ltc}_ligand_to_{ttc}_targets_{GRN_method}_{merged}.txt",
+            ltc=config["heatmap_NicheNet_framework"]["ligands_to_consider"],
+            ttc=config["heatmap_NicheNet_framework"]["targets_to_consider"],
+            GRN_method=config["heatmap_NicheNet_framework"]["grn_method"],
+            merged=config["heatmap_NicheNet_framework"]["merged"]
+        ),
+
+        # Velocities
+        expand(config["directories"]["rna"]+"/velocyto/anndata_velocyto_{incl_samples}.h5ad",
+            incl_samples=config["create_anndata_from_loom_files"]["incl_samples"]
+        ),
+        expand(config["directories"]["rna"]+"/velocyto/anndata_scvelo_{incl_samples}.h5ad",
+            incl_samples=config["run_scvelo"]["incl_samples"]
+        ),
+        expand(config["directories"]["rna"]+"/velocyto/scvelo_analysis_cells_completed_{incl_samples}.txt",
+            incl_samples=config["scvelo_analysis_cells"]["incl_samples"]
+        ),
+
+##########
+## Mofa ##
+##########
+
+rule prepare_mofa:
+    input:
+        script=config["scripts"]["prepare_mofa"]
+    output:
+        metadata=config["directories"]["results"]+"/mofa/sample_metadata.txt.gz",
+        atac_dimred=config["directories"]["results"]+"/mofa/atac_tfidf.mtx",
+        rna_dimred=config["directories"]["results"]+"/mofa/rna.mtx"
+    params:
+        outdir=config["directories"]["results"]+"/mofa/",
+        metadata=config["directories"]["atac"]+"/qc/sample_metadata_after_qc.txt.gz",
+        atac_matrix=config["prepare_mofa"]["atac_matrix"],
+        atac_matrix_file=config["prepare_mofa"]["atac_matrix_file"],
+        sce=config["directories"]["rna"]+"/SingleCellExperiment.rds",
+        nfeatures_atac=config["prepare_mofa"]["nfeatures_atac"],
+        nfeatures_rna=config["prepare_mofa"]["nfeatures_rna"],
+        samples= config["samples"]
+    log:
+        config["directories"]["logs"]+"/prepare_mofa.log"
+    threads:
+        config["slurm"]["prepare_mofa"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["prepare_mofa"]["memory"]
+    shell:
+        "Rscript {input.script} --metadata {params.metadata} --atac_matrix {params.atac_matrix} --atac_matrix_file {params.atac_matrix_file} --sce {params.sce} --nfeatures_atac {params.nfeatures_atac} --nfeatures_rna {params.nfeatures_rna} --outdir {params.outdir} --samples {params.samples} > {log}"
+
+rule run_mofa:
+    input:
+        script=config["scripts"]["run_mofa"]
+    output:
+        model=config["directories"]["results"]+"/mofa/mofa_{incl_samples}.rds",
+        metadata=config["directories"]["results"]+"/mofa/sample_metadata_{incl_samples}.txt.gz"
+    params:
+        outdir=config["directories"]["results"]+"/mofa/",
+        metadata=config["directories"]["atac"]+"/qc/sample_metadata_after_qc.txt.gz",
+        atac_dimred=config["directories"]["atac"]+"/dimensionality_reduction/PeakMatrix/batch_correction_SeqRun_Harmony/lsi_nfeatures25000_ndims30_{incl_samples}.txt.gz",
+        # atac_dimred=config["directories"]["atac"]+"/dimensionality_reduction/PeakMatrix/batch_correction_SeqRun_Harmony/lsi_nfeatures25000_ndims25_{incl_samples}.txt.gz",
+        # atac_dimred=config["directories"]["atac"]+"/dimensionality_reduction/PeakMatrix/batch_correction_SeqRun_Harmony/lsi_nfeatures25000_ndims15_{incl_samples}.txt.gz",
+        # atac_dimred=config["directories"]["atac"]+"/dimensionality_reduction/PeakMatrix/batch_correction_SeqRun_Harmony/lsi_nfeatures15000_ndims30_{incl_samples}.txt.gz",
+        # atac_dimred=config["directories"]["atac"]+"/dimensionality_reduction/PeakMatrix/batch_correction_SeqRun_Harmony/lsi_nfeatures15000_ndims25_{incl_samples}.txt.gz",
+        # atac_dimred=config["directories"]["atac"]+"/dimensionality_reduction/PeakMatrix/batch_correction_SeqRun_Harmony/lsi_nfeatures15000_ndims15_{incl_samples}.txt.gz",
+        rna_dimred=config["directories"]["rna"]+"/dimensionality_reduction/batch_correction_SeqRun/pca_features2500_pcs15_{incl_samples}.txt.gz",
+        # rna_dimred=config["directories"]["rna"]+"/dimensionality_reduction/batch_correction_None/pca_features2500_pcs15_{incl_samples}.txt.gz",
+        n_factors=config["run_mofa"]["n_factors"],
+        python_path=config["resources"]["python"],
+        samples= config["samples"]
+    log:
+        config["directories"]["logs"]+"/run_mofa_{incl_samples}.log"
+    threads:
+        config["slurm"]["run_mofa"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["run_mofa"]["memory"]
+    shell:
+        "Rscript {input.script} --metadata {params.metadata} --incl_samples {wildcards.incl_samples} --atac_dimred {params.atac_dimred} --rna_dimred {params.rna_dimred} --n_factors {params.n_factors} --python_path {params.python_path} --outdir {params.outdir} --samples {params.samples} > {log}"
+
+rule plot_mofa:
+    input:
+        script=config["scripts"]["plot_mofa"],
+        metadata=rules.run_mofa.output.metadata,
+        mofa_model=rules.run_mofa.output.model
+    output:
+        config["directories"]["results"]+"/mofa/pdf/mofa_umap_sample_{incl_samples}.pdf"
+    params:
+        outdir=config["directories"]["results"]+"/mofa/pdf/",
+        n_factors=config["plot_mofa"]["n_factors"],
+        samples=config["samples"]
+    log:
+        config["directories"]["logs"]+"/plot_mofa_{incl_samples}.log"
+    threads:
+        config["slurm"]["plot_mofa"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["plot_mofa"]["memory"]
+    shell:
+        "Rscript {input.script} --metadata {input.metadata} --incl_samples {wildcards.incl_samples} --mofa_model {input.mofa_model} --outdir {params.outdir} --n_factors {params.n_factors} --samples {params.samples} > {log}"
+
+################
+## Clustering ##
+################
+
+rule clustering:
+    input:
+        script=config["scripts"]["clustering"],
+        metadata=rules.run_mofa.output.metadata,
+        mofa_model=rules.run_mofa.output.model,
+        plot_mofa_completed=rules.plot_mofa.output
+    output:
+        config["directories"]["results"]+"/clustering/{matrix}/sample_metadata_{incl_samples}_after_clustering.txt.gz"
+    params:
+        outdir=config["directories"]["results"]+"/clustering/{matrix}",
+        n_factors=config["clustering"]["n_factors"],
+        am_clusters=config["clustering"]["am_clusters"],
+        reorder_clusters=config["clustering"]["reorder_clusters"],
+        samples= config["samples"]
+    log:
+        config["directories"]["logs"]+"/clustering_{matrix}_{incl_samples}.log"
+    threads:
+        config["slurm"]["clustering"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["clustering"]["memory"]
+    shell:
+        "Rscript {input.script} --matrix {wildcards.matrix} --incl_samples {wildcards.incl_samples} --reorder_clusters {params.reorder_clusters} --metadata {input.metadata} --mofa_model {input.mofa_model} --outdir {params.outdir} --samples {params.samples} --n_factors {params.n_factors} --am_clusters {params.am_clusters} > {log}"
+
+################
+## Pseudobulk ##
+################
+
+rule create_pseudobulk_rna:
+    input:
+        script=config["scripts"]["create_pseudobulk_rna"],
+        metadata=config["directories"]["results"]+"/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz"
+    output:
+        config["directories"]["results"]+"/pseudobulk/{group_by}/SingleCellExperiment_pseudobulk.rds"
+    params:
+        outdir=config["directories"]["results"]+"/pseudobulk/{group_by}",
+        sce=config["create_pseudobulk_rna"]["sce"],
+        normalisation_method=config["create_pseudobulk_rna"]["normalisation_method"]
+    log:
+        config["directories"]["logs"]+"/create_pseudobulk_rna_groupby{group_by}.log"
+    threads:
+        config["slurm"]["create_pseudobulk_rna"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["create_pseudobulk_rna"]["memory"]
+    shell:
+        "Rscript {input.script} --metadata {input.metadata} --group_by {wildcards.group_by} --sce {params.sce} --outdir {params.outdir} --normalisation_method {params.normalisation_method} > {log}"
+
+rule create_pseudobulk_atac:
+    input:
+        script=config["scripts"]["create_pseudobulk_atac"],
+        metadata=config["directories"]["results"]+"/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz"
+    output:
+        config["directories"]["results"]+"/pseudobulk/{group_by}/{matrix}_pseudobulk_summarized_experiment.rds"
+    params:
+        outdir=config["directories"]["results"]+"/pseudobulk/{group_by}",
+        archr_directory=config["directories"]["archr_directory"]
+    log:
+        config["directories"]["logs"]+"/create_pseudobulk_atac_{matrix}_groupby{group_by}.log"
+    threads:
+        config["slurm"]["create_pseudobulk_atac"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["create_pseudobulk_atac"]["memory"]
+    shell:
+        "Rscript {input.script} --matrix {wildcards.matrix} --metadata {input.metadata} --group_by {wildcards.group_by} --archr_directory {params.archr_directory} --outdir {params.outdir} > {log}"
+
+rule create_pseudobulk_replicates:
+    input:
+        script=config["scripts"]["create_pseudobulk_replicates"],
+        metadata=config["directories"]["results"]+"/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz"
+    output:
+        config["directories"]["results"]+"/pseudobulk/{group_by}/cell2replicate.txt.gz"
+    params:
+        outdir=config["directories"]["results"]+"/pseudobulk/{group_by}",
+        sce=config["create_pseudobulk_replicates"]["sce"],
+        atac_matrix_names=config["create_pseudobulk_replicates"]["atac_matrices"],
+        fraction_cells_per_replicate=config["create_pseudobulk_replicates"]["fraction_cells_per_replicate"],
+        min_cells=config["create_pseudobulk_replicates"]["min_cells"],
+        nrep=config["create_pseudobulk_replicates"]["nrep"]
+    log:
+        config["directories"]["logs"]+"/create_pseudobulk_replicates_groupby{group_by}.log"
+    threads:
+        config["slurm"]["create_pseudobulk_replicates"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["create_pseudobulk_replicates"]["memory"]
+    shell:
+        "Rscript {input.script} --metadata {input.metadata} --group_by {wildcards.group_by} --sce {params.sce} --outdir {params.outdir} --atac_matrix_names {params.atac_matrix_names} --fraction_cells_per_replicate {params.fraction_cells_per_replicate} --nrep {params.nrep} --min_cells {params.min_cells} > {log}"
+
+###########################
+## Differential analysis ##
+###########################
+
+rule differential_analysis_pseudobulk:
+    input:
+        script=config["scripts"]["differential_analysis_pseudobulk"],
+        completed_pseudobulk_repl=rules.create_pseudobulk_replicates.output
+    output:
+        config["directories"]["results"]+"/pseudobulk/{group_by}/{matrix}/DE_res/DEG_overview.txt"
+    params:
+        min_expr=config["differential_analysis_pseudobulk"]["min_expr"],
+        min_cdr=config["differential_analysis_pseudobulk"]["min_cdr"],
+        cluster_ids=config["differential_analysis_pseudobulk"]["cluster_ids"],
+        atac_peak_metadata=config["directories"]["archr_directory"]+"/PeakCalls/peak_metadata.tsv.gz",
+    log:
+        config["directories"]["logs"]+"/differential_analysis_pseudobulk_{matrix}_groupby{group_by}.log"
+    threads:
+        config["slurm"]["differential_analysis_pseudobulk"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["differential_analysis_pseudobulk"]["memory"]
+    shell:
+        "Rscript {input.script} --atac_peak_metadata {params.atac_peak_metadata} --min_expr {params.min_expr} --min_cdr {params.min_cdr} --cluster_ids {params.cluster_ids} --matrix {wildcards.matrix} > {log}"
+
+#######################
+## Gene set analysis ##
+#######################
+
+rule gene_set_analysis:
+    input:
+        script=config["scripts"]["gene_set_analysis"],
+        DEG_overview=rules.differential_analysis_pseudobulk.output
+    output:
+        config["directories"]["results"]+"/pseudobulk/{group_by}/{matrix}/GSA/completed.txt"
+    params:
+        outdir=config["directories"]["results"]+"/pseudobulk/{group_by}/{matrix}/GSA",
+    log:
+        config["directories"]["logs"]+"/gene_set_analysis_{matrix}_groupby{group_by}.log"
+    threads:
+        config["slurm"]["gene_set_analysis"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["gene_set_analysis"]["memory"]
+    shell:
+        "Rscript {input.script} --DEG_overview {input.DEG_overview} --outdir {params.outdir} --matrix {wildcards.matrix}> {log}"
+
+#########################
+## Create BigWig files ##
+#########################
+
+rule create_bigwig:
+    input:
+        script=config["scripts"]["create_bigwig"],
+        metadata=config["directories"]["results"]+"/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz"
+    output:
+        config["directories"]["results"]+"/GroupBigWigs/{group_by}/completed.txt"
+    params:
+        archr_directory = config["directories"]["archr_directory"],
+        outdir = config["directories"]["results"],
+        norm_method=config["create_bigwig"]["norm_method"],
+        min_cells=config["create_bigwig"]["min_cells"],
+        tile_size=config["create_bigwig"]["tile_size"]
+    log:
+        config["directories"]["logs"]+"/create_bigwigs_groupby{group_by}.log"
+    threads:
+        config["slurm"]["create_bigwig"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["create_bigwig"]["memory"]
+    shell:
+        "Rscript {input.script} --group_by {wildcards.group_by} --outdir {params.outdir} --metadata {input.metadata} --archr_directory {params.archr_directory} --min_cells {params.min_cells} --tile_size {params.tile_size} --norm_method {params.norm_method} > {log}"
+
+###############
+## Metacells ##
+###############
+
+rule convert_sce_to_anndata:
+    input:
+        script=config["scripts"]["convert_sce_to_anndata"],
+        completed_plot_mofa=rules.plot_mofa.output
+    output:
+        config["directories"]["results"]+"/anndata_{incl_samples}.h5ad"
+    params:
+        metadata=config["directories"]["atac"]+"/qc/sample_metadata_after_qc.txt.gz",
+        sce=config["convert_sce_to_anndata"]["sce"],
+        python_path=config["resources"]["python"],
+        samples= config["samples"]
+    log:
+        config["directories"]["logs"]+"/convert_sce_to_anndata_{incl_samples}.log"
+    threads:
+        config["slurm"]["convert_sce_to_anndata"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["convert_sce_to_anndata"]["memory"]
+    shell:
+        "Rscript {input.script} --metadata {params.metadata} --incl_samples {wildcards.incl_samples} --sce {params.sce} --python_path {params.python_path} --samples {params.samples} --outfile {output} > {log}"
+
+rule create_metacells:
+    input:
+        script=config["scripts"]["create_metacells"],
+        anndata=rules.convert_sce_to_anndata.output
+    output:
+        config["directories"]["results"]+"/metacells/anndata_metacells_{incl_samples}.h5ad"
+    params:
+        outdir=config["directories"]["results"]+"/metacells/",
+        metadata=config["create_metacells"]["metadata"],
+        percent_metacells=config["create_metacells"]["percent_metacells"],
+        n_features=config["create_metacells"]["n_features"],
+        n_pcs=config["create_metacells"]["n_pcs"],
+        samples= config["samples"]
+    log:
+        config["directories"]["logs"]+"/create_metacells_{incl_samples}.log"
+    threads:
+        config["slurm"]["create_metacells"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["create_metacells"]["memory"]
+    shell:
+        "python {input.script} --samples {params.samples} --percent_metacells {params.percent_metacells} --metadata {params.metadata} --outdir {params.outdir} --anndata {input.anndata} --n_features {params.n_features} --n_pcs {params.n_pcs} > {log}"
+
+rule aggregate_metacells:
+    input:
+        script=config["scripts"]["aggregate_metacells"],
+        metacells_completed=rules.create_metacells.output
+    output:
+        config["directories"]["results"]+"/metacells/metacells_metadata_{incl_samples}.txt.gz"
+    params:
+        archr_directory = config["directories"]["archr_directory"],
+        metadata_rna=config["aggregate_metacells"]["metadata_rna"],
+        metadata_atac=config["aggregate_metacells"]["metadata_atac"],
+        metadata_cluster=config["aggregate_metacells"]["metadata_cluster"],
+        sce=config["aggregate_metacells"]["sce"],
+        python=config["resources"]["python"],
+        matrices=config["aggregate_metacells"]["matrices"],
+        cell2metacell=config["directories"]["results"]+"/metacells/cell2metacell_assignment_{incl_samples}.txt.gz",
+        metacell_min_reads=config["aggregate_metacells"]["metacell_min_reads"],
+        metacell_min_frags=config["aggregate_metacells"]["metacell_min_frags"],
+        outdir=config["directories"]["results"]+"/metacells/"
+    log:
+        config["directories"]["logs"]+"/aggregate_metacells_{incl_samples}.log"
+    threads:
+        config["slurm"]["run_mofa"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["run_mofa"]["memory"]
+    shell:
+        "Rscript {input.script} --archr_directory {params.archr_directory} --metadata_rna {params.metadata_rna} --metadata_cluster {params.metadata_cluster} --metadata_atac {params.metadata_atac} --cell2metacell {params.cell2metacell} --incl_samples {wildcards.incl_samples} --sce {params.sce} --python {params.python} --metacell_min_reads {params.metacell_min_reads} --metacell_min_frags {params.metacell_min_frags} --matrices {params.matrices} --outdir {params.outdir} > {log}"
+
+rule metacells_stats:
+    input:
+        script=config["scripts"]["metacells_stats"],
+        completed_aggregate_metacels=rules.aggregate_metacells.output
+    output:
+        config["directories"]["results"]+"/metacells/table_metacells_per_sample_{incl_samples}.txt",
+        config["directories"]["results"]+"/metacells/table_metacells_per_cluster_{incl_samples}.txt"
+    params:
+        samples = config["samples"],
+        metadata = config["directories"]["results"]+"/clustering/PeakMatrix/sample_metadata_{incl_samples}_after_clustering.txt.gz",
+        metacell = config["directories"]["results"]+"/metacells/metacells_metadata_{incl_samples}.txt.gz",
+        metacell_prefilter = config["directories"]["results"]+"/metacells/cell2metacell_assignment_{incl_samples}.txt.gz",
+        mofa_model = config["directories"]["results"]+"/mofa/mofa_{incl_samples}.rds",
+        outdir=config["directories"]["results"]+"/metacells/"
+    log:
+        config["directories"]["logs"]+"/metacells_stats_{incl_samples}.log"
+    threads:
+        config["slurm"]["metacells_stats"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["metacells_stats"]["memory"]
+    shell:
+        "Rscript {input.script} --incl_samples {wildcards.incl_samples} --samples {params.samples} --metadata {params.metadata} --metacell {params.metacell} --metacell_prefilter {params.metacell_prefilter} --mofa_model {params.mofa_model} --outdir {params.outdir} > {log}"
+
+###############
+## Marker TF ##
+###############
+
+rule marker_TFs:
+    input:
+        script=config["scripts"]["marker_TFs"],
+        DEG_overview=rules.differential_analysis_pseudobulk.output,
+        metacells_completed=config["directories"]["results"]+"/metacells/metacells_metadata_nodiff.txt.gz"
+    output:
+        config["directories"]["results"]+"/pseudobulk/{group_by}/{matrix}/marker_TFs/TF.markers.clusters.txt"
+    params:
+        outdir=config["directories"]["results"]+"/pseudobulk/{group_by}/{matrix}/marker_TFs",
+        TF=config["resources"]["TFs_file"],
+        mofa_metadata=config["directories"]["results"]+"/mofa/sample_metadata_nodiff.txt.gz",
+        factors=config["directories"]["results"]+"/mofa/pdf/factors_nodiff.txt.gz",
+        sce=config["directories"]["rna"]+"/SingleCellExperiment.rds",
+        sce_mc=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds" 
+    log:
+        config["directories"]["logs"]+"/marker_TFs_{matrix}_groupby{group_by}.log"
+    threads:
+        config["slurm"]["marker_TFs"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["marker_TFs"]["memory"]
+    shell:
+        "Rscript {input.script} --sce {params.sce} --sce_mc {params.sce_mc} --ncores {threads} --matrix {wildcards.matrix} --DEG_overview {input.DEG_overview} --TF {params.TF} --mofa_metadata {params.mofa_metadata} --factors {params.factors} --outdir {params.outdir} > {log}"
+
+################
+## RNA vs ACC ##
+################
+
+rule cor_expr_vs_acc_pseudobulk:
+    input:
+        script=config["scripts"]["cor_expr_vs_acc_pseudobulk"],
+        sce=config["directories"]["results"]+"/pseudobulk/cluster/SingleCellExperiment_pseudobulk.rds",
+        atac_peak_matrix=config["directories"]["results"]+"/pseudobulk/cluster/PeakMatrix_pseudobulk_summarized_experiment.rds"
+    output:
+        neg_cor=config["directories"]["results"]+"/rna_vs_acc/pseudobulk/gene_expr_vs_peak_acc/{which_clusters}/neg_corr_completed_{n_clusters}clusters_corr{correlation}.pdf",
+        pos_cor=config["directories"]["results"]+"/rna_vs_acc/pseudobulk/gene_expr_vs_peak_acc/{which_clusters}/pos_corr_completed_{n_clusters}clusters_corr{correlation}.pdf"
+    params:
+        peak2gene=config["directories"]["archr_directory"]+"/PeakCalls/peaks2genes/peaks2genes_all.txt.gz",
+        atac_peak_metadata=config["directories"]["archr_directory"]+"/PeakCalls/peak_metadata.tsv.gz",
+        distance=config["cor_expr_vs_acc_pseudobulk"]["distance"],
+        max_pval=config["cor_expr_vs_acc_pseudobulk"]["max_pval"],
+        force_rerun=config["cor_expr_vs_acc_pseudobulk"]["force_rerun"],
+        outdir=config["directories"]["results"]+"/rna_vs_acc/pseudobulk/gene_expr_vs_peak_acc/"
+    log:
+        config["directories"]["logs"]+"/cor_expr_vs_acc_pseudobulk_{which_clusters}_{n_clusters}geneclusters_corr{correlation}.log"
+    threads:
+        config["slurm"]["cor_expr_vs_acc_pseudobulk"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["cor_expr_vs_acc_pseudobulk"]["memory"]
+    shell:
+        "Rscript {input.script} --min_cor {wildcards.correlation} --force_rerun {params.force_rerun} --n_clusters {wildcards.n_clusters} --which_clusters {wildcards.which_clusters} --max_pval {params.max_pval} --sce {input.sce} --atac_peak_matrix {input.atac_peak_matrix} --peak2gene {params.peak2gene} --atac_peak_metadata {params.atac_peak_metadata} --distance {params.distance} --outdir {params.outdir} > {log}"
+
+rule cor_expr_vs_acc_metacells:
+    input:
+        script=config["scripts"]["cor_expr_vs_acc_metacells"],
+        completed_metacells=config["directories"]["results"]+"/metacells/metacells_metadata_nodiff.txt.gz"
+    output:
+        neg_cor=config["directories"]["results"]+"/rna_vs_acc/metacells/gene_expr_vs_peak_acc/{which_clusters}/neg_corr_completed_{n_clusters}clusters_corr{correlation}.pdf",
+        pos_cor=config["directories"]["results"]+"/rna_vs_acc/metacells/gene_expr_vs_peak_acc/{which_clusters}/pos_corr_completed_{n_clusters}clusters_corr{correlation}.pdf"
+    params:
+        samples=config["samples"],
+        sce=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        sce_pseudobulk=config["directories"]["results"]+"/pseudobulk/cluster/RNA/pseudobulk_with_replicates.rds",
+        atac_peak_matrix=config["directories"]["results"]+"/metacells/PeakMatrix_summarized_experiment_metacells_nodiff.rds",
+        atac_peak_matrix_pseudobulk=config["directories"]["results"]+"/pseudobulk/cluster/PeakMatrix/pseudobulk_with_replicates.rds",
+        peak2gene=config["directories"]["archr_directory"]+"/PeakCalls/peaks2genes/peaks2genes_all.txt.gz",
+        atac_peak_metadata=config["directories"]["archr_directory"]+"/PeakCalls/peak_metadata.tsv.gz",
+        distance=config["cor_expr_vs_acc_metacells"]["distance"],
+        max_pval=config["cor_expr_vs_acc_metacells"]["max_pval"],
+        force_rerun=config["cor_expr_vs_acc_metacells"]["force_rerun"],
+        outdir=config["directories"]["results"]+"/rna_vs_acc/metacells/gene_expr_vs_peak_acc/"
+    log:
+        config["directories"]["logs"]+"/cor_expr_vs_acc_metacells_{which_clusters}_{n_clusters}geneclusters_corr{correlation}.log"
+    threads:
+        config["slurm"]["cor_expr_vs_acc_metacells"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["cor_expr_vs_acc_metacells"]["memory"]
+    shell:
+        "Rscript {input.script} --samples {params.samples} --min_cor {wildcards.correlation} --force_rerun {params.force_rerun} --n_clusters {wildcards.n_clusters} --which_clusters {wildcards.which_clusters} --max_pval {params.max_pval} --sce {params.sce} --atac_peak_matrix {params.atac_peak_matrix} --sce_pseudobulk {params.sce_pseudobulk} --atac_peak_matrix_pseudobulk {params.atac_peak_matrix_pseudobulk} --peak2gene {params.peak2gene} --atac_peak_metadata {params.atac_peak_metadata} --distance {params.distance} --outdir {params.outdir} > {log}"
+
+rule cor_TFexpr_vs_acc_pseudobulk:
+    input:
+        script=config["scripts"]["cor_TFexpr_vs_acc_pseudobulk"],
+        sce=config["directories"]["results"]+"/pseudobulk/cluster/SingleCellExperiment_pseudobulk.rds",
+        atac_peak_matrix=config["directories"]["results"]+"/pseudobulk/cluster/PeakMatrix_pseudobulk_summarized_experiment.rds"
+    output:
+        config["directories"]["results"]+"/rna_vs_acc/pseudobulk/TF_expr_vs_peak_acc/{which_clusters}/{motif_ann}_cor_TFexpr_vs_peakAcc_pseudobulk.txt.gz"
+    params:
+        motif2gene=config["directories"]["archr_directory"]+"/Annotations/{motif_ann}_motif2gene.txt.gz",
+        motifmatcher=config["directories"]["archr_directory"]+"/Annotations/{motif_ann}-Scores.rds",
+        force_rerun=config["cor_TFexpr_vs_acc_pseudobulk"]["force_rerun"],
+        outdir=config["directories"]["results"]+"/rna_vs_acc/pseudobulk/TF_expr_vs_peak_acc/"
+    log:
+        config["directories"]["logs"]+"/cor_TFexpr_vs_acc_pseudobulk_{which_clusters}_{motif_ann}.log"
+    threads:
+        config["slurm"]["cor_TFexpr_vs_acc_pseudobulk"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["cor_TFexpr_vs_acc_pseudobulk"]["memory"]
+    shell:
+        "Rscript {input.script} --motif_annotation {wildcards.motif_ann} --force_rerun {params.force_rerun} --which_clusters {wildcards.which_clusters} --sce {input.sce} --atac_peak_matrix {input.atac_peak_matrix} --motif2gene {params.motif2gene} --motifmatcher {params.motifmatcher} --outdir {params.outdir} > {log}"
+
+rule cor_TFexpr_vs_acc_metacells:
+    input:
+        script=config["scripts"]["cor_TFexpr_vs_acc_metacells"],
+        completed_metacells=config["directories"]["results"]+"/metacells/metacells_metadata_nodiff.txt.gz"
+    output:
+        config["directories"]["results"]+"/rna_vs_acc/metacells/TF_expr_vs_peak_acc/{which_clusters}/{motif_ann}_cor_TFexpr_vs_peakAcc_metacells.txt.gz"
+    params:
+        sce=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        atac_peak_matrix=config["directories"]["results"]+"/metacells/PeakMatrix_summarized_experiment_metacells_nodiff.rds",
+        motif2gene=config["directories"]["archr_directory"]+"/Annotations/{motif_ann}_motif2gene.txt.gz",
+        motifmatcher=config["directories"]["archr_directory"]+"/Annotations/{motif_ann}-Scores.rds",
+        force_rerun=config["cor_TFexpr_vs_acc_metacells"]["force_rerun"],
+        outdir=config["directories"]["results"]+"/rna_vs_acc/metacells/TF_expr_vs_peak_acc/"
+    log:
+        config["directories"]["logs"]+"/cor_TFexpr_vs_acc_metacells_{which_clusters}_{motif_ann}.log"
+    threads:
+        config["slurm"]["cor_TFexpr_vs_acc_metacells"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["cor_TFexpr_vs_acc_metacells"]["memory"]
+    shell:
+        "Rscript {input.script} --motif_annotation {wildcards.motif_ann} --force_rerun {params.force_rerun} --which_clusters {wildcards.which_clusters} --sce {params.sce} --atac_peak_matrix {params.atac_peak_matrix} --motif2gene {params.motif2gene} --motifmatcher {params.motifmatcher} --outdir {params.outdir} > {log}"
+
+#####################
+## Virtual ChipSeq ##
+#####################
+
+rule virtual_chipseq_pseudobulk:
+    input:
+        script=config["scripts"]["virtual_chipseq_pseudobulk"],
+        completed_cor_TFexpr_vs_peakACC=config["directories"]["results"]+"/rna_vs_acc/pseudobulk/TF_expr_vs_peak_acc/no6/{motif_ann}_cor_TFexpr_vs_peakAcc_pseudobulk.txt.gz"
+    output:
+        config["directories"]["results"]+"/virtual_chipseq/pseudobulk/{motif_ann}/motifmatchr_virtual_chip.rds"
+    params:
+        tf2peak_cor=config["directories"]["results"]+"/rna_vs_acc/pseudobulk/TF_expr_vs_peak_acc/no6/{motif_ann}_cor_TFexpr_vs_peakAcc_pseudobulk.txt.gz",
+        atac_peak_matrix=config["directories"]["results"]+"/pseudobulk/cluster/PeakMatrix_pseudobulk_summarized_experiment.rds",
+        motif2gene=config["directories"]["archr_directory"]+"/Annotations/{motif_ann}_motif2gene.txt.gz",
+        motifmatcher=config["directories"]["archr_directory"]+"/Annotations/{motif_ann}-Scores.rds",
+        peak_metadata=config["directories"]["archr_directory"]+"/PeakCalls/peak_metadata.tsv.gz",
+        min_number_peaks=config["virtual_chipseq_pseudobulk"]["min_number_peaks"],
+        outdir=config["directories"]["results"]+"/virtual_chipseq/pseudobulk/{motif_ann}/"
+    log:
+        config["directories"]["logs"]+"/virtual_chipseq_pseudobulk_{motif_ann}.log"
+    threads:
+        config["slurm"]["virtual_chipseq_pseudobulk"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["virtual_chipseq_pseudobulk"]["memory"]
+    shell:
+        "Rscript {input.script} --tf2peak_cor {params.tf2peak_cor} --motif_annotation {wildcards.motif_ann} --atac_peak_matrix {params.atac_peak_matrix} --motif2gene {params.motif2gene} --motifmatcher {params.motifmatcher} --peak_metadata {params.peak_metadata} --min_number_peaks {params.min_number_peaks} --outdir {params.outdir} --threads {threads} > {log}"
+
+rule virtual_chipseq_metacells:
+    input:
+        script=config["scripts"]["virtual_chipseq_metacells"],
+        completed_metacells=config["directories"]["results"]+"/metacells/metacells_metadata_nodiff.txt.gz",
+        completed_cor_TFexpr_vs_peakACC=config["directories"]["results"]+"/rna_vs_acc/metacells/TF_expr_vs_peak_acc/all/{motif_ann}_cor_TFexpr_vs_peakAcc_metacells.txt.gz"
+    output:
+        config["directories"]["results"]+"/virtual_chipseq/metacells/{motif_ann}/motifmatchr_virtual_chip.rds"
+    params:
+        tf2peak_cor=config["directories"]["results"]+"/rna_vs_acc/metacells/TF_expr_vs_peak_acc/all/{motif_ann}_cor_TFexpr_vs_peakAcc_metacells.txt.gz",
+        atac_peak_matrix=config["directories"]["results"]+"/metacells/PeakMatrix_summarized_experiment_metacells_nodiff.rds",
+        motif2gene=config["directories"]["archr_directory"]+"/Annotations/{motif_ann}_motif2gene.txt.gz",
+        motifmatcher=config["directories"]["archr_directory"]+"/Annotations/{motif_ann}-Scores.rds",
+        peak_metadata=config["directories"]["archr_directory"]+"/PeakCalls/peak_metadata.tsv.gz",
+        min_number_peaks=config["virtual_chipseq_pseudobulk"]["min_number_peaks"],
+        outdir=config["directories"]["results"]+"/virtual_chipseq/metacells/{motif_ann}/"
+    log:
+        config["directories"]["logs"]+"/virtual_chipseq_metacells_{motif_ann}.log"
+    threads:
+        config["slurm"]["virtual_chipseq_metacells"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["virtual_chipseq_metacells"]["memory"]
+    shell:
+        "Rscript {input.script} --tf2peak_cor {params.tf2peak_cor} --motif_annotation {wildcards.motif_ann} --atac_peak_matrix {params.atac_peak_matrix} --motif2gene {params.motif2gene} --motifmatcher {params.motifmatcher} --peak_metadata {params.peak_metadata} --min_number_peaks {params.min_number_peaks} --outdir {params.outdir} --threads {threads} > {log}"
+
+rule compare_virtual_chipseq:
+    input:
+        script=config["scripts"]["compare_virtual_chipseq"],
+    output:
+        config["directories"]["results"]+"/virtual_chipseq/comparison/{motif_ann}/pdf/lineplot_number_binding_sites_per_tf.pdf"
+    params:
+        virtual_chip_pseudobulk_dir=config["directories"]["results"]+"/virtual_chipseq/pseudobulk/{motif_ann}",
+        virtual_chip_metacells_dir=config["directories"]["results"]+"/virtual_chipseq/metacells/{motif_ann}",
+        min_chip_score=config["compare_virtual_chipseq"]["min_chip_score"],
+        outdir=config["directories"]["results"]+"/virtual_chipseq/comparison/{motif_ann}/pdf"
+    log:
+        config["directories"]["logs"]+"/compare_virtual_chipseq_{motif_ann}.log"
+    threads:
+        config["slurm"]["compare_virtual_chipseq"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["compare_virtual_chipseq"]["memory"]
+    shell:
+        "Rscript {input.script} --motif_annotation {wildcards.motif_ann} --min_chip_score {params.min_chip_score} --virtual_chip_pseudobulk_dir {params.virtual_chip_pseudobulk_dir} --virtual_chip_metacells_dir {params.virtual_chip_metacells_dir} --outdir {params.outdir} > {log}"
+
+rule validation_virtual_chipseq_pseudobulk:
+    input:
+        script=config["scripts"]["validation_virtual_chipseq"]
+    output:
+        config["directories"]["results"]+"/virtual_chipseq/pseudobulk/{motif_ann}/validation/virtual_chip_roc_curves.pdf"
+    params:
+        peak_extension=config["validation_virtual_chipseq_pseudobulk"]["peak_extension"],
+        chip_dir_prefix=config["directories"]["chipseq"]+"/bigwig",
+        peakcalls_dir_prefix=config["directories"]["chipseq"]+"/peak_calls",
+        peak_metadata=config["directories"]["atac"]+"/PeakCalls/peak_metadata.tsv.gz",
+        peak_annotation_file=config["directories"]["atac"]+"/Annotations/peakAnnotation.rds",
+        virtual_chip_dir=config["directories"]["results"]+"/virtual_chipseq/pseudobulk/{motif_ann}",
+        motif2gene=config["directories"]["atac"]+"/Annotations/{motif_ann}_motif2gene.txt.gz",
+        outdir=config["directories"]["results"]+"/virtual_chipseq/pseudobulk/{motif_ann}/validation"
+    log:
+        config["directories"]["logs"]+"/validation_virtual_chipseq_pseudobulk_{motif_ann}.log"
+    threads:
+        config["slurm"]["validation_virtual_chipseq_pseudobulk"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["validation_virtual_chipseq_pseudobulk"]["memory"]
+    shell:
+        "Rscript {input.script} --motif_annotation {wildcards.motif_ann} --peak_extension {params.peak_extension} --chip_dir_prefix {params.chip_dir_prefix} --peakcalls_dir_prefix {params.peakcalls_dir_prefix} --peak_metadata {params.peak_metadata} --peak_annotation_file {params.peak_annotation_file} --virtual_chip_dir {params.virtual_chip_dir} --motif2gene {params.motif2gene} --outdir {params.outdir} > {log}"
+
+rule validation_virtual_chipseq_metacells:
+    input:
+        script=config["scripts"]["validation_virtual_chipseq"],
+        completed_metacells=config["directories"]["results"]+"/metacells/metacells_metadata_nodiff.txt.gz"
+    output:
+        config["directories"]["results"]+"/virtual_chipseq/metacells/{motif_ann}/validation/virtual_chip_roc_curves.pdf"
+    params:
+        peak_extension=config["validation_virtual_chipseq_metacells"]["peak_extension"],
+        chip_dir_prefix=config["directories"]["chipseq"]+"/bigwig",
+        peakcalls_dir_prefix=config["directories"]["chipseq"]+"/peak_calls",
+        peak_metadata=config["directories"]["atac"]+"/PeakCalls/peak_metadata.tsv.gz",
+        peak_annotation_file=config["directories"]["atac"]+"/Annotations/peakAnnotation.rds",
+        virtual_chip_dir=config["directories"]["results"]+"/virtual_chipseq/metacells/{motif_ann}",
+        motif2gene=config["directories"]["atac"]+"/Annotations/{motif_ann}_motif2gene.txt.gz",
+        outdir=config["directories"]["results"]+"/virtual_chipseq/metacells/{motif_ann}/validation"
+    log:
+        config["directories"]["logs"]+"/validation_virtual_chipseq_metacells_{motif_ann}.log"
+    threads:
+        config["slurm"]["validation_virtual_chipseq_metacells"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["validation_virtual_chipseq_metacells"]["memory"]
+    shell:
+        "Rscript {input.script} --motif_annotation {wildcards.motif_ann} --peak_extension {params.peak_extension} --chip_dir_prefix {params.chip_dir_prefix} --peakcalls_dir_prefix {params.peakcalls_dir_prefix} --peak_metadata {params.peak_metadata} --peak_annotation_file {params.peak_annotation_file} --virtual_chip_dir {params.virtual_chip_dir} --motif2gene {params.motif2gene} --outdir {params.outdir} > {log}"
+
+######################
+## Infer trajectory ##
+######################
+
+rule infer_trajectory:
+    input:
+        script=config["scripts"]["infer_trajectory"],
+        metadata=config["directories"]["results"]+"/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz",
+        completed_create_metacels=rules.aggregate_metacells.output
+    output:
+        pseudotime=config["directories"]["results"]+"/trajectories/{trajectory_name}/{trajectory_name}_trajectory_{incl_samples}.txt.gz",
+    params:
+        sce=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_{incl_samples}.rds",
+        sce_atac=config["directories"]["results"]+"/metacells/PeakMatrix_summarized_experiment_metacells_{incl_samples}.rds",
+        celltype_label=config["infer_trajectory"]["celltype_label"],
+        outdir=config["directories"]["results"]+"/trajectories/{trajectory_name}/",
+        samples= config["samples"]
+    log:
+        config["directories"]["logs"]+"/infer_trajectory_{trajectory_name}_{incl_samples}.log"
+    threads:
+        config["slurm"]["infer_trajectory"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["infer_trajectory"]["memory"]
+    shell:
+        "Rscript {input.script} --metadata {input.metadata} --trajectory_name {wildcards.trajectory_name} --sce {params.sce} --sce.atac {params.sce_atac} --celltype_label {params.celltype_label} --outdir {params.outdir} --samples {params.samples} --incl_samples {wildcards.incl_samples}> {log}"
+
+################
+## Pseudotime ##
+################
+
+rule pseudotime_plots:
+    input:
+        script=config["scripts"]["pseudotime_plots"],
+        pseudotime=rules.infer_trajectory.output
+    output:
+        config["directories"]["results"]+"/trajectories/{trajectory_name}/pseudotime_plots_completed_{trajectory_name}_{incl_samples}.txt",
+    params:
+        sce_metacell=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_{incl_samples}.rds",
+        atac_metacell_TSS=config["directories"]["results"]+"/metacells/GeneScoreMatrix_TSS_summarized_experiment_metacells_{incl_samples}.rds",
+        atac_metacell_Distal=config["directories"]["results"]+"/metacells/GeneScoreMatrix_distal_summarized_experiment_metacells_{incl_samples}.rds",
+        goi=config["pseudotime_plots"]["goi"],
+        outdir=config["directories"]["results"]+"/trajectories/{trajectory_name}/",
+        umap_coord=config["directories"]["results"]+"/mofa/pdf/umap_nodiff.txt.gz",
+        DE_gene_clusters=config["directories"]["results"]+"/pseudobulk/cluster/RNA/DE_res/genes_gene_clustering_ordered.txt",
+        DA_gene_clusters=config["directories"]["results"]+"/pseudobulk/cluster/GeneScoreMatrix_distal/DE_res/genes_gene_clustering_ordered.txt",
+        grn_coef=config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/N2P/TFandSign/conv/unmerged/global_chip_GRN_sign_conv_coef_score0.06_unmerged.txt.gz",
+        min_coef=config["pseudotime_plots"]["min_coef"],
+        max_pval=config["pseudotime_plots"]["max_pval"],
+        gap_rows=config["pseudotime_plots"]["gap_rows"],
+        goi_ordered=config["pseudotime_plots"]["goi_ordered"],
+        DEG_overview=config["directories"]["results"]+"/pseudobulk/cluster/RNA/DE_res/DEG_overview.txt",
+        DAG_overview=config["directories"]["results"]+"/pseudobulk/cluster/GeneScoreMatrix_distal/DE_res/DEG_overview.txt"
+    log:
+        config["directories"]["logs"]+"/pseudotime_plots_{trajectory_name}_{incl_samples}.log"
+    threads:
+        config["slurm"]["pseudotime_plots"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["pseudotime_plots"]["memory"]
+    shell:
+        "Rscript {input.script} --gap_rows {params.gap_rows} --goi_ordered {params.goi_ordered} --pseudotime {input.pseudotime} --DEG_overview {params.DEG_overview} --DAG_overview {params.DAG_overview} --goi {params.goi} --DE_gene_clusters {params.DE_gene_clusters} --DA_gene_clusters {params.DA_gene_clusters} --grn_coef {params.grn_coef} --min_coef {params.min_coef} --max_pval {params.max_pval} --umap_coord {params.umap_coord} --trajectory_name {wildcards.trajectory_name} --sce_metacell {params.sce_metacell} --atac_metacell_TSS {params.atac_metacell_TSS} --atac_metacell_Distal {params.atac_metacell_Distal} --outdir {params.outdir} --incl_samples {wildcards.incl_samples} > {log}"
+
+##################
+## Coexpression ##
+##################
+
+rule coexpression_TF_vs_gene_pseudobulk:
+    input:
+        script=config["scripts"]["coexpression_TF_vs_gene"],
+        sce=config["directories"]["results"]+"/pseudobulk/cluster/RNA/pseudobulk_with_replicates.rds"
+    output:
+        config["directories"]["results"]+"/coexpression/pseudobulk/correlation_matrix_{cor_test}_tf2gene.rds"
+    params:
+        TFs_file=config["resources"]["TFs_file"],
+        outdir=config["directories"]["results"]+"/coexpression/pseudobulk/"
+    log:
+        config["directories"]["logs"]+"/coexpression_TF_vs_gene_pseudobulk_{cor_test}.log"
+    threads:
+        config["slurm"]["coexpression_TF_vs_gene"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["coexpression_TF_vs_gene"]["memory"]
+    shell:
+        "Rscript {input.script} --cor_test {wildcards.cor_test} --sce {input.sce} --TFs_file {params.TFs_file} --outdir {params.outdir} > {log}"
+
+rule coexpression_TF_vs_gene_metacells:
+    input:
+        script=config["scripts"]["coexpression_TF_vs_gene"],
+        sce=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        completed_metacells=config["directories"]["results"]+"/metacells/metacells_metadata_nodiff.txt.gz"
+    output:
+        config["directories"]["results"]+"/coexpression/metacells/correlation_matrix_{cor_test}_tf2gene.rds"
+    params:
+        TFs_file=config["resources"]["TFs_file"],
+        outdir=config["directories"]["results"]+"/coexpression/metacells/"
+    log:
+        config["directories"]["logs"]+"/coexpression_TF_vs_gene_metacells_{cor_test}.log"
+    threads:
+        config["slurm"]["coexpression_TF_vs_gene"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["coexpression_TF_vs_gene"]["memory"]
+    shell:
+        "Rscript {input.script} --cor_test {wildcards.cor_test} --sce {input.sce} --TFs_file {params.TFs_file} --outdir {params.outdir} > {log}"
+
+######################
+## Link TF to genes ##
+######################
+
+rule link_TF2genes_chip_metacells:
+    input:
+        script=config["scripts"]["link_TF2genes_chip"],
+        virtual_chip_matrix=rules.virtual_chipseq_metacells.output
+    output:
+        config["directories"]["results"]+"/gene_regulatory_network/metacells/{motif_ann}/TF2gene_after_virtual_chip.txt.gz"
+    params:
+        max_distance=config["link_TF2genes_chip"]["max_distance"],
+        min_chip_score=config["link_TF2genes_chip"]["min_chip_score"],
+        peak2gene=config["directories"]["atac"]+"/PeakCalls/peaks2genes/peaks2genes_all.txt.gz",
+        outfile=config["directories"]["results"]+"/gene_regulatory_network/metacells/{motif_ann}/TF2gene_after_virtual_chip.txt.gz"
+    log:
+        config["directories"]["logs"]+"/link_TF2genes_chip_{motif_ann}.log"
+    threads:
+        config["slurm"]["link_TF2genes_chip"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["link_TF2genes_chip"]["memory"]
+    shell:
+        "Rscript {input.script} --motif_annotation {wildcards.motif_ann} --virtual_chip_matrix {input.virtual_chip_matrix} --peak2gene {params.peak2gene} --max_distance {params.max_distance} --min_chip_score {params.min_chip_score} --outfile {params.outfile} > {log}"
+
+#############################
+## Gene regulatory network ##
+#############################
+
+rule build_GRN_metacells_trajectory:
+    input:
+        script=config["scripts"]["build_GRN_metacells_trajectory"],
+        sce=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        tf2gene_virtual_chip=config["directories"]["results"]+"/gene_regulatory_network/metacells/CISBP/TF2gene_after_virtual_chip.txt.gz",
+        completed_marker_TFs=config["directories"]["results"]+"/pseudobulk/cluster/RNA/marker_TFs/TF.markers.clusters.txt"
+    output:
+        config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/global_chip_GRN_coef_score{min_chip_score}.txt.gz"
+    params:
+        max_distance=config["build_GRN_metacells_trajectory"]["max_distance"],
+        min_chip_score=config["build_GRN_metacells_trajectory"]["min_chip_score"],
+        outdir=config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}",
+    log:
+        config["directories"]["logs"]+"/build_GRN_metacells_trajectory_{trajectory_name}_score{min_chip_score}_{full}.log"
+    threads:
+        config["slurm"]["build_GRN_metacells_trajectory"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["build_GRN_metacells_trajectory"]["memory"]
+    shell:
+        "Rscript {input.script} --markers_TF {input.completed_marker_TFs} --ncores {threads} --trajectory_name {wildcards.trajectory_name} --sce {input.sce} --tf2gene_virtual_chip {input.tf2gene_virtual_chip} --max_distance {params.max_distance} --min_chip_score {wildcards.min_chip_score} --outdir {params.outdir} > {log}"
+
+rule plot_GRN_metacells_trajectory:
+    input:
+        script=config["scripts"]["plot_GRN_metacells_trajectory"],
+        sce_metacells=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        sce_pseudobulk=config["directories"]["results"]+"/pseudobulk/cluster/SingleCellExperiment_pseudobulk.rds",
+        grn_coef=rules.build_GRN_metacells_trajectory.output
+    output:
+        config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/marker_TF/fig/Score{min_chip_score}_Coef{min_coef}/completed.txt"
+    params:
+        max_pval=config["plot_GRN_metacells_trajectory"]["max_pval"],
+        TFs_to_plot=config["directories"]["results"]+"/chromvar_chip/GRN_TFs_to_plot.txt",
+        force=config["plot_GRN_metacells_trajectory"]["force"],
+        outdir=config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/marker_TF/fig"
+    log:
+        config["directories"]["logs"]+"/plot_GRN_metacells_trajectory_{trajectory_name}_score{min_chip_score}_coef{min_coef}_{full}.log"
+    threads:
+        config["slurm"]["plot_GRN_metacells_trajectory"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["plot_GRN_metacells_trajectory"]["memory"]
+    shell:
+        "Rscript {input.script} --trajectory_name {wildcards.trajectory_name} --force {params.force} --rna_metacells.sce {input.sce_metacells} --rna_pseudobulk.sce {input.sce_pseudobulk} --grn_coef {input.grn_coef} --TFs_to_plot {params.TFs_to_plot} --min_coef {wildcards.min_coef} --min_chip_score {wildcards.min_chip_score} --max_pval {params.max_pval} --outdir {params.outdir} > {log}"
+
+rule plot_UMAP_GRN_metacells_trajectory:
+    input:
+        script=config["scripts"]["plot_UMAP_GRN_metacells_trajectory"],
+        sce_metacells=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        sce_pseudobulk_cluster=config["directories"]["results"]+"/pseudobulk/cluster/SingleCellExperiment_pseudobulk.rds",
+        sce_pseudobulk_sample=config["directories"]["results"]+"/pseudobulk/batch/SingleCellExperiment_pseudobulk.rds",
+        tf2gene_virtual_chip=config["directories"]["results"]+"/gene_regulatory_network/metacells/CISBP/TF2gene_after_virtual_chip.txt.gz",
+        grn_coef=rules.build_GRN_metacells_trajectory.output
+    output:
+        config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/marker_TF/UMAP_fig/Score{min_chip_score}/completed.txt"
+    params:
+        min_coef=config["plot_UMAP_GRN_metacells_trajectory"]["min_coef"],
+        max_distance=config["plot_UMAP_GRN_metacells_trajectory"]["max_distance"],
+        max_pval=config["plot_UMAP_GRN_metacells_trajectory"]["max_pval"],
+        min_chip_score=config["plot_UMAP_GRN_metacells_trajectory"]["min_chip_score"],
+        TFs_to_plot=config["directories"]["results"]+"/chromvar_chip/GRN_TFs_to_plot.txt",
+        force=config["plot_UMAP_GRN_metacells_trajectory"]["force"],
+        outdir=config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/marker_TF/UMAP_fig"
+    log:
+        config["directories"]["logs"]+"/plot_UMAP_GRN_metacells_trajectory_{trajectory_name}_score{min_chip_score}_{full}.log"
+    threads:
+        config["slurm"]["plot_UMAP_GRN_metacells_trajectory"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["plot_UMAP_GRN_metacells_trajectory"]["memory"]
+    shell:
+        "Rscript {input.script} --trajectory_name {wildcards.trajectory_name} --force {params.force} --max_distance {params.max_distance} --tf2gene_virtual_chip {input.tf2gene_virtual_chip} --rna_metacells.sce {input.sce_metacells} --rna_pseudobulk_sample.sce {input.sce_pseudobulk_sample} --rna_pseudobulk_cluster.sce {input.sce_pseudobulk_cluster} --grn_coef {input.grn_coef} --TFs_to_plot {params.TFs_to_plot} --min_coef {params.min_coef} --min_chip_score {wildcards.min_chip_score} --max_pval {params.max_pval} --outdir {params.outdir} > {log}"
+
+rule GRN_interaction_plots:
+    input:
+        script=config["scripts"]["GRN_interaction_plots"],
+        grn_coef=rules.build_GRN_metacells_trajectory.output
+    output:
+        config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/marker_TF/Interaction_plots/Score{min_chip_score}_Coef{min_coef}/completed.txt"
+    params:
+        interaction_table=config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/marker_TF/fig/Score{min_chip_score}_Coef{min_coef}/table_interactions.txt",
+        outdir=config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/marker_TF/Interaction_plots/Score{min_chip_score}_Coef{min_coef}"
+    log:
+        config["directories"]["logs"]+"/GRN_interaction_plots_trajectory_{trajectory_name}_score{min_chip_score}_coef{min_coef}_{full}.log"
+    threads:
+        config["slurm"]["GRN_interaction_plots"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["GRN_interaction_plots"]["memory"]
+    shell:
+        "Rscript {input.script} --interaction_table {params.interaction_table} --outdir {params.outdir} > {log}"
+
+##############################
+## Infer signalling network ##
+##############################
+
+rule cellPhoneDB:
+    input:
+        script=config["scripts"]["cellPhoneDB"]
+    output:
+        config["directories"]["results"]+"/CellPhoneDb/CellPhone_res_stat_{version}_{incl_samples}.txt"
+    params:
+        db_path=config["directories"]["results"] + "/CellPhoneDb/db_input_files",
+        metadata=config["directories"]["results"]+"/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz",
+        metadata_out=config["directories"]["results"] + "/CellPhoneDb/metadata.tsv",
+        anndata=config["directories"]["results"] + "/anndata_{incl_samples}.h5ad",
+        anndata_out=config["directories"]["results"] + "/CellPhoneDb/normalised_log_counts.h5ad",
+        outdir=config["directories"]["results"] + "/CellPhoneDb",
+        degs=config["directories"]["results"] + "/pseudobulk/cluster/RNA/DE_res/DEG_overview.txt",
+        degs_out=config["directories"]["results"] + "/CellPhoneDb/degs.tsv",
+        celltypes_to_use=config["cellPhoneDB"]["celltypes_to_use"],
+        gene_input=config["directories"]["results"] + "/CellPhoneDb/db_input_files/{version}/gene_input.csv",
+        complex_input=config["directories"]["results"] + "/CellPhoneDb/db_input_files/{version}/gene_input.csv",
+    log:
+        config["directories"]["logs"]+"/cellPhoneDB_{version}_{incl_samples}.log"
+    threads:
+        config["slurm"]["cellPhoneDB"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["cellPhoneDB"]["memory"]
+    shell:
+        "python {input.script} --db_path {params.db_path} --cpdb_version {wildcards.version} --gene_input {params.gene_input} --complex_input {params.complex_input} --celltypes_to_use {params.celltypes_to_use} --degs {params.degs} --degs_out {params.degs_out} --incl_samples {wildcards.incl_samples} --anndata {params.anndata} --anndata_out {params.anndata_out} --metadata {params.metadata} --metadata_out {params.metadata_out} --outdir {params.outdir} > {log}"
+
+
+rule infer_signalling_interactions_NicheNet:
+    input:
+        script=config["scripts"]["infer_signalling_interactions_NicheNet"],
+        sce=config["directories"]["results"]+"/pseudobulk/cluster/SingleCellExperiment_pseudobulk.rds",
+        sce_mc=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        completed_marker_TFs=config["directories"]["results"]+"/pseudobulk/cluster/RNA/marker_TFs/TF.markers.clusters.txt",
+        completed_metacells=config["directories"]["results"]+"/metacells/metacells_metadata_nodiff.txt.gz"
+    output:
+        config["directories"]["results"]+"/NicheNet/GRN_coef_signalling_{GRN_method}_to_add_{merged}.txt"
+    params:
+        CellPhoneDB_data=config["directories"]["pw"]+"/CellPhoneDB_analysis/CellPhone_res_stat_LIGANDS_RECEPTORS.xlsx",
+        metadata=config["directories"]["results"]+"/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz",
+        outdir=config["directories"]["results"]+"/NicheNet",
+        min_coef=config["build_GRN_metacells_signalling_trajectory"]["min_coef"],
+        plot_correlations=config["build_GRN_metacells_signalling_trajectory"]["plot_correlations"],
+        DEG_overview=config["directories"]["results"]+"/pseudobulk/cluster/RNA/DE_res/DEG_overview.txt"
+    log:
+        config["directories"]["logs"]+"/infer_signaling_interactions_NicheNet_{GRN_method}_{merged}.log"
+    threads:
+        config["slurm"]["infer_signalling_interactions_NicheNet"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["infer_signalling_interactions_NicheNet"]["memory"]
+    shell:
+        "Rscript {input.script} --min_coef {params.min_coef} --merged {wildcards.merged} --GRN_method {wildcards.GRN_method} --CellPhoneDB_data {params.CellPhoneDB_data} --DEG_overview {params.DEG_overview} --metadata {params.metadata} --markers_TF {input.completed_marker_TFs} --ncores {threads} --sce {input.sce} --sce_mc {input.sce_mc} --outdir {params.outdir} > {log}"
+
+#############################################
+## Gene regulatory network incl. signaling ##
+#############################################
+
+rule build_GRN_metacells_signalling_trajectory:
+    input:
+        script=config["scripts"]["build_GRN_metacells_signalling_trajectory"],
+        sce=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        tf2gene_virtual_chip=config["directories"]["results"]+"/gene_regulatory_network/metacells/CISBP/TF2gene_after_virtual_chip.txt.gz",
+        completed_marker_TFs=config["directories"]["results"]+"/pseudobulk/cluster/RNA/marker_TFs/TF.markers.clusters.txt",
+        sign_connections=rules.infer_signalling_interactions_NicheNet.output
+    output:
+        config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{GRN_type}/{GRN_method}/{merged}/global_chip_GRN_sign_{GRN_method}_coef_score{min_chip_score}_{merged}_cleaned.txt.gz"
+    params:
+        max_distance=config["build_GRN_metacells_signalling_trajectory"]["max_distance"],
+        metadata=config["directories"]["results"]+"/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz",
+        min_chip_score=config["build_GRN_metacells_signalling_trajectory"]["min_chip_score"],
+        min_coef=config["build_GRN_metacells_signalling_trajectory"]["min_coef"],
+        DEG_overview=config["directories"]["results"]+"/pseudobulk/cluster/RNA/DE_res/DEG_overview.txt",
+        plot_correlations=config["build_GRN_metacells_signalling_trajectory"]["plot_correlations"],
+        outdir=config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{GRN_type}/{GRN_method}/{merged}"
+    log:
+        config["directories"]["logs"]+"/build_GRN_metacells_signalling_trajectory_{trajectory_name}_score{min_chip_score}_{GRN_type}_{GRN_method}_{merged}.log"
+    threads:
+        config["slurm"]["build_GRN_metacells_signalling_trajectory"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["build_GRN_metacells_signalling_trajectory"]["memory"]
+    shell:
+        "Rscript {input.script} --min_coef {params.min_coef} --plot_correlations {params.plot_correlations} --merged {wildcards.merged} --GRN_type {wildcards.GRN_type} --DEG_overview {params.DEG_overview} --sign_connections {input.sign_connections} --metadata {params.metadata} --GRN_method {wildcards.GRN_method} --markers_TF {input.completed_marker_TFs} --ncores {threads} --trajectory_name {wildcards.trajectory_name} --sce {input.sce} --tf2gene_virtual_chip {input.tf2gene_virtual_chip} --max_distance {params.max_distance} --min_chip_score {wildcards.min_chip_score} --outdir {params.outdir} > {log}"
+
+rule plot_GRN_metacells_signalling_trajectory:
+    input:
+        script=config["scripts"]["plot_GRN_metacells_signalling_trajectory"],
+        sce_metacells=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        sce_pseudobulk=config["directories"]["results"]+"/pseudobulk/cluster/SingleCellExperiment_pseudobulk.rds",
+        grn_coef=rules.build_GRN_metacells_signalling_trajectory.output,
+        sign_connections=rules.infer_signalling_interactions_NicheNet.output
+    output:
+        config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{GRN_type}/{GRN_method}/{merged}/fig/Score{min_chip_score}_Coef{min_coef}/completed.txt"
+    params:
+        max_pval=config["plot_GRN_metacells_signalling_trajectory"]["max_pval"],
+        TFs_to_plot=config["directories"]["results"]+"/chromvar_chip/GRN_TFs_to_plot.txt",
+        force=config["plot_GRN_metacells_signalling_trajectory"]["force"],
+        outdir=config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{GRN_type}/{GRN_method}/{merged}/fig"
+    log:
+        config["directories"]["logs"]+"/plot_GRN_metacells_signalling_trajectory_{trajectory_name}_{GRN_type}_{GRN_method}_{merged}_score{min_chip_score}_coef{min_coef}.log"
+    threads:
+        config["slurm"]["plot_GRN_metacells_signalling_trajectory"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["plot_GRN_metacells_signalling_trajectory"]["memory"]
+    shell:
+        "Rscript {input.script} --sign_connections {input.sign_connections} --trajectory_name {wildcards.trajectory_name} --force {params.force} --rna_metacells.sce {input.sce_metacells} --rna_pseudobulk.sce {input.sce_pseudobulk} --grn_coef {input.grn_coef} --TFs_to_plot {params.TFs_to_plot} --min_coef {wildcards.min_coef} --min_chip_score {wildcards.min_chip_score} --max_pval {params.max_pval} --outdir {params.outdir} > {log}"
+
+rule plot_UMAP_GRN_metacells_signalling_trajectory:
+    input:
+        script=config["scripts"]["plot_UMAP_GRN_metacells_signalling_trajectory"],
+        sce_metacells=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        sce_pseudobulk_cluster=config["directories"]["results"]+"/pseudobulk/cluster/SingleCellExperiment_pseudobulk.rds",
+        sce_pseudobulk_sample=config["directories"]["results"]+"/pseudobulk/batch/SingleCellExperiment_pseudobulk.rds",
+        tf2gene_virtual_chip=config["directories"]["results"]+"/gene_regulatory_network/metacells/CISBP/TF2gene_after_virtual_chip.txt.gz",
+        grn_coef=rules.build_GRN_metacells_signalling_trajectory.output,
+        sign_connections=rules.infer_signalling_interactions_NicheNet.output
+    output:
+        config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{GRN_type}/{GRN_method}/{merged}/UMAP_fig/Score{min_chip_score}/completed.txt"
+    params:
+        min_coef=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["min_coef"],
+        max_distance=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["max_distance"],
+        max_pval=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["max_pval"],
+        min_chip_score=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["min_chip_score"],
+        TFs_to_plot=config["directories"]["results"]+"/chromvar_chip/GRN_TFs_to_plot.txt",
+        force=config["plot_UMAP_GRN_metacells_signalling_trajectory"]["force"],
+        outdir=config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{GRN_type}/{GRN_method}/{merged}/UMAP_fig/"
+    log:
+        config["directories"]["logs"]+"/plot_UMAP_GRN_metacells_signalling_trajectory_{trajectory_name}_{GRN_type}_{GRN_method}_{merged}_score{min_chip_score}.log"
+    threads:
+        config["slurm"]["plot_UMAP_GRN_metacells_signalling_trajectory"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["plot_UMAP_GRN_metacells_signalling_trajectory"]["memory"]
+    shell:
+        "Rscript {input.script} --sign_connections {input.sign_connections} --trajectory_name {wildcards.trajectory_name} --force {params.force} --max_distance {params.max_distance} --tf2gene_virtual_chip {input.tf2gene_virtual_chip} --rna_metacells.sce {input.sce_metacells} --rna_pseudobulk_sample.sce {input.sce_pseudobulk_sample} --rna_pseudobulk_cluster.sce {input.sce_pseudobulk_cluster} --grn_coef {input.grn_coef} --TFs_to_plot {params.TFs_to_plot} --min_coef {params.min_coef} --min_chip_score {wildcards.min_chip_score} --max_pval {params.max_pval} --outdir {params.outdir} > {log}"
+
+    # rule GRN_signalling_interaction_plot
+
+#########################
+## Signalling analyses ##
+#########################
+
+rule heatmap_NicheNet_framework:
+    input:
+        script=config["scripts"]["heatmap_NicheNet_framework"],
+        sce=config["directories"]["results"]+"/pseudobulk/cluster/SingleCellExperiment_pseudobulk.rds",
+        sce_mc=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        completed_marker_TFs=config["directories"]["results"]+"/pseudobulk/cluster/RNA/marker_TFs/TF.markers.clusters.txt"
+    output:
+        config["directories"]["results"]+"/NicheNet/Heatmaps/{ltc}_ligand_to_{ttc}_targets_{GRN_method}_{merged}.txt"
+    params:
+        CellPhoneDB_data=config["directories"]["pw"]+"/CellPhoneDB_analysis/CellPhone_res_stat_LIGANDS_RECEPTORS.xlsx",
+        GRN_type=config["heatmap_NicheNet_framework"]["grn_type"],
+        outdir=config["directories"]["results"]+"/NicheNet",
+        DEG_overview=config["directories"]["results"]+"/pseudobulk/cluster/RNA/DE_res/DEG_overview.txt"
+    log:
+        config["directories"]["logs"]+"/heatmap_NicheNet_framework_{GRN_method}_{merged}_{ltc}_ligand_to_{ttc}_targets.log"
+    threads:
+        config["slurm"]["heatmap_NicheNet_framework"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["heatmap_NicheNet_framework"]["memory"]
+    shell:
+        "Rscript {input.script} --sce_mc {input.sce_mc} --ligands_to_consider {wildcards.ltc} --targets_to_consider {wildcards.ttc} --GRN_type {params.GRN_type} --merged {wildcards.merged} --GRN_method {wildcards.GRN_method} --CellPhoneDB_data {params.CellPhoneDB_data} --DEG_overview {params.DEG_overview} --markers_TF {input.completed_marker_TFs} --sce {input.sce} --outdir {params.outdir} > {log}"
+
+####################
+## GRN on request ##
+####################
+
+rule plot_UMAP_GRN_metacells_trajectory_goi:
+    input:
+        script=config["scripts"]["plot_UMAP_GRN_metacells_trajectory_goi"],
+        sce_metacells=config["directories"]["results"]+"/metacells/SingleCellExperiment_metacells_nodiff.rds",
+        sce_pseudobulk_cluster=config["directories"]["results"]+"/pseudobulk/cluster/SingleCellExperiment_pseudobulk.rds",
+        sce_pseudobulk_sample=config["directories"]["results"]+"/pseudobulk/batch/SingleCellExperiment_pseudobulk.rds",
+        tf2gene_virtual_chip=config["directories"]["results"]+"/gene_regulatory_network/metacells/CISBP/TF2gene_after_virtual_chip.txt.gz",
+        grn_coef=rules.build_GRN_metacells_trajectory.output
+    output:
+        config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/{goi_name}/UMAP_fig/Score{min_chip_score}/completed.txt"
+    params:
+        min_coef=config["plot_UMAP_GRN_metacells_trajectory_goi"]["min_coef"],
+        max_distance=config["plot_UMAP_GRN_metacells_trajectory_goi"]["max_distance"],
+        max_pval=config["plot_UMAP_GRN_metacells_trajectory_goi"]["max_pval"],
+        min_chip_score=config["plot_UMAP_GRN_metacells_trajectory_goi"]["min_chip_score"],
+        TFs_to_plot=config["directories"]["results"]+"/chromvar_chip/GRN_TFs_to_plot.txt",
+        force=config["plot_UMAP_GRN_metacells_trajectory_goi"]["force"],
+        outdir=config["directories"]["results"]+"/gene_regulatory_network/metacells/trajectories/{trajectory_name}/{full}/{goi_name}/UMAP_fig"
+    wildcard_constraints:
+        goi_name = "[a-z]+"
+    log:
+        config["directories"]["logs"]+"/plot_UMAP_GRN_metacells_trajectory_{trajectory_name}_{goi_name}_score{min_chip_score}_{full}.log"
+    threads:
+        config["slurm"]["plot_UMAP_GRN_metacells_trajectory"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["plot_UMAP_GRN_metacells_trajectory"]["memory"]
+    shell:
+        "Rscript {input.script} --plot_correlations {params.plot_correlations} --trajectory_name {wildcards.trajectory_name} --goi_name {wildcards.goi_name} --force {params.force} --max_distance {params.max_distance} --tf2gene_virtual_chip {input.tf2gene_virtual_chip} --rna_metacells.sce {input.sce_metacells} --rna_pseudobulk_sample.sce {input.sce_pseudobulk_sample} --rna_pseudobulk_cluster.sce {input.sce_pseudobulk_cluster} --grn_coef {input.grn_coef} --TFs_to_plot {params.TFs_to_plot} --min_coef {params.min_coef} --min_chip_score {wildcards.min_chip_score} --max_pval {params.max_pval} --outdir {params.outdir} > {log}"
+
+################
+## Velocities ##
+################
+
+rule create_anndata_from_loom_files:
+    input:
+        script=config["scripts"]["create_anndata_from_loom_files"],
+    output:
+        config["directories"]["rna"]+"/velocyto/anndata_velocyto_{incl_samples}.h5ad"
+    params:
+        anndata=config["directories"]["rna"] + "/anndata_{incl_samples}.h5ad",
+        metadata=config["directories"]["rna"]+"/mapping/sample_metadata_after_doublets.txt.gz",
+        cellranger_output="/data/homes/louisc/Project_Babraham/results_sierra",
+        outfile=config["directories"]["rna"] + "/velocyto/anndata_velocyto_{incl_samples}.h5ad"
+    log:
+        config["directories"]["logs"]+"/create_anndata_from_loom_files_{incl_samples}.log"
+    threads:
+        config["slurm"]["create_anndata_from_loom_files"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["create_anndata_from_loom_files"]["memory"]
+    shell:
+        "python {input.script} --incl_samples {wildcards.incl_samples} --anndata {params.anndata} --metadata {params.metadata} --cellranger_output {params.cellranger_output} --outfile {params.outfile} > {log}"
+
+rule run_scvelo:
+    input:
+        script=config["scripts"]["run_scvelo"],
+        anndata=rules.create_anndata_from_loom_files.output
+    output:
+        config["directories"]["rna"] + "/velocyto/anndata_scvelo_{incl_samples}.h5ad"
+    params:
+        metadata=config["directories"]["rna"] + "/mapping/sample_metadata_after_doublets.txt.gz",
+        ncores=config["run_scvelo"]["ncores"],
+        outdir=config["directories"]["rna"] + "/velocyto/"
+    log:
+        config["directories"]["logs"] + "/run_scvelo_{incl_samples}.log"
+    threads:
+        config["slurm"]["run_scvelo"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["run_scvelo"]["memory"]
+    shell:
+        "python {input.script} --incl_samples {wildcards.incl_samples} --anndata {input.anndata} --metadata {params.metadata} --outdir {params.outdir} > {log}"
+
+rule scvelo_analysis_cells:
+    input:
+        script=config["scripts"]["scvelo_analysis_cells"],
+        anndata_scvelo=rules.run_scvelo.output
+    output:
+        config["directories"]["rna"]+"/velocyto/scvelo_analysis_cells_completed_{incl_samples}.txt"
+    params:
+        metadata=config["directories"]["results"] + "/clustering/PeakMatrix/sample_metadata_nodiff_after_clustering.txt.gz",
+        umap_coord=config["directories"]["results"] + "/mofa/pdf/umap_{incl_samples}.txt.gz",
+        umap_coord_RNA=config["directories"]["rna"] + "/dimensionality_reduction/batch_correction_None/umap_features2500_pcs15_neigh50_dist0.25_{incl_samples}.txt.gz",
+        umap_coord_ATAC=config["directories"]["atac"] + "/dimensionality_reduction/umap_PeakMatrix_nfeatures15000_ndims25_{incl_samples}.txt.gz",
+        outdir=config["directories"]["rna"] + "/velocyto/"
+    log:
+        config["directories"]["logs"]+"/scvelo_analysis_cells_{incl_samples}.log"
+    threads:
+        config["slurm"]["scvelo_analysis_cells"]["threads"]
+    resources:
+        mem_mb=config["slurm"]["scvelo_analysis_cells"]["memory"]
+    shell:
+        "python {input.script} --incl_samples {wildcards.incl_samples} --anndata_scvelo {input.anndata_scvelo} --metadata {params.metadata} --umap_coord {params.umap_coord} --umap_coord_RNA {params.umap_coord_RNA} --umap_coord_ATAC {params.umap_coord_ATAC} --outdir {params.outdir} > {log}"
