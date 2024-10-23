@@ -1,0 +1,153 @@
+######################
+## Global variables ##
+######################
+
+samples: ["d0","d1","d3","d5","d7","d10","d14","d18","DE","NE","AME_E","AME_L"]
+
+#################
+## Directories ##
+#################
+
+directories:
+    base: /data/homes/louisc/Project_Babraham/RNA/scripts
+    original_data: /data/homes/louisc/Project_Babraham/results_sierra
+    results: /data/homes/louisc/Project_Babraham/RNA
+    logs: /data/homes/louisc/Project_Babraham/RNA_logs
+
+###############
+## Resources ##
+###############
+
+resources:
+    python: /opt/anaconda/Anaconda3/envs/Babraham/bin/python
+
+#############
+## Scripts ##
+#############
+
+scripts:
+    # Basic processing
+    create_seurat: /data/homes/louisc/Project_Babraham/RNA/scripts/processing/1_create_seurat_rna.R
+    qc: /data/homes/louisc/Project_Babraham/RNA/scripts/processing/2_qc.R
+    seurat_to_sce: /data/homes/louisc/Project_Babraham/RNA/scripts/processing/3_seurat_to_SCE.R
+    doublet_detection: /data/homes/louisc/Project_Babraham/RNA/scripts/processing/4_doublet_detection.R
+    parse_doublets: /data/homes/louisc/Project_Babraham/RNA/scripts/processing/5_parse_sample_metadata_after_doublets.R
+    plot_stats_per_sample: /data/homes/louisc/Project_Babraham/RNA/scripts/processing/6_plot_stats.R
+
+    # Dimensionality reduction
+    dimensionality_reduction: /data/homes/louisc/Project_Babraham/RNA/scripts/dimensionality_reduction/dimensionality_reduction.R
+
+    # Clustering
+    clustering: /data/homes/louisc/Project_Babraham/RNA/scripts/clustering/clustering.R
+
+    # Pseudobulk
+    create_pseudobulk_replicates: /data/homes/louisc/Project_Babraham/RNA/scripts/pseudobulk/pseudobulk_rna_with_replicates.R
+
+    # Differential expression analysis
+    differential_expression_pseudobulk: /data/homes/louisc/Project_Babraham/RNA/scripts/differential/differential_expression_pseudobulk.R
+
+    # Differential expression analysis
+    convert_sce_to_anndata: /data/homes/louisc/Project_Babraham/RNA/scripts/velocity/convert_SingleCellExperiment_to_anndata.R
+
+################
+## Parameters ##
+################
+
+qc:
+    min_nFeature_RNA: 2000
+    max_nFeature_RNA: 12500
+    percent_mt: 35
+    percent_rib: 30
+    cutoff_nFeature_RNA : 15000
+    cutoff_mt : 60
+    cutoff_rib : 50
+
+doublet_detection:
+    doublet_score_threshold: 1.25
+
+dimensionality_reduction:
+    npcs: 15
+    features: 2500
+    n_neighbors: 50
+    min_dist: 0.25
+    vars_to_regress: [ "nFeature_RNA"]
+    batch_variable: [ "SeqRun", "None" ]
+    samples: [ "nodiff", "all" ]
+    colour_by: [ "sample", "nFeature_RNA", "nCount_RNA","Phase" ]
+
+clustering:
+    npcs: 15
+    features: 2500
+    n_neighbors: 50
+    min_dist: 0.25
+    n_neighbors_clusters: [ 15, 50 ]
+    resolution: [ 0.25, 0.15 ]
+    vars_to_regress: [ "nFeature_RNA" ]
+    order_clust: [ 1, 2, 3, 5, 6, 4 ]
+    # order_clust: [ 1, 2, 3, 4, 5, 6 ]
+    batch_variable: [ "SeqRun", "None" ]
+    samples: [ "nodiff", "all" ]
+    colour_by: [ "sample", "nFeature_RNA", "nCount_RNA","Phase" ]
+
+create_pseudobulk_replicates:
+    nrep: 5
+    min_cells: 25
+    fraction_cells_per_replicate: 0.30
+    n_neighbors_clusters: 15
+    resolution: 0.25
+    group_by: "cluster"
+    samples: "nodiff"
+    batch_variable: "SeqRun"
+
+differential_expression_pseudobulk:
+    n_neighbors_clusters: 15
+    resolution: 0.25
+    n_gene_clusters: 7
+    cluster_ids: [ 1, 2, 3, 4, 5]
+    order_clust: [ 3, 1, 6, 7, 2, 4, 5 ]
+    # order_clust: [ 1, 2, 3, 4, 5, 6, 7 ]
+    group_by: "cluster"
+    samples: "nodiff"
+    batch_variable: "SeqRun"
+
+convert_sce_to_anndata:
+    samples: ["nodiff", "all"]
+
+###########
+## Slurm ##
+###########
+
+slurm:  # memory in MB
+    create_seurat: 
+        memory: 50000
+        threads: 1
+    qc: 
+        memory: 3000
+        threads: 1
+    seurat_to_sce:
+        memory: 50000
+        threads: 1
+    doublet_detection:
+        memory: 25000
+        threads: 1
+    parse_doublet_results:
+        memory: 2000
+        threads: 1
+    plot_stats_per_sample:
+        threads: 1
+        memory: 15000
+    dimensionality_reduction_sce:
+        memory: 20000
+        threads: 1
+    clustering:
+        memory: 20000
+        threads: 1
+    create_pseudobulk_replicates:
+        memory: 20000
+        threads: 1
+    differential_expression_pseudobulk:
+        memory: 20000
+        threads: 1
+    convert_sce_to_anndata:
+        memory: 20000
+        threads: 1
