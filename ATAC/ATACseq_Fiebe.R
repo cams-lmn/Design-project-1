@@ -26,8 +26,7 @@ opts$sample_cell_separator <- "#"
 
 
 # List of directories and corresponding names
-directories <- c("C2", "C3", "Early1", "Early2", "Early3")
-#directories <- c("C1", "C2", "C3", "Early1", "Early2", "Early3")
+directories <- c("C1", "C2", "C3", "Early1", "Early2", "Early3")
 #base_path <- "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/processed_GEO_data"
 base_path <- "C:/Users/Hwanseok Jeong/Desktop/1-1/Design project/processed_GEO_data"
 
