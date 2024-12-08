@@ -1,0 +1,16 @@
+
+    C1     C2     C3 Early1 Early2 Early3 
+  7801   1520    789  11063   3490   6906 
+[1] "Reordering clusters..."
+[1] 6
+[1] 1 2 3 4 5 6
+[1] 5
+[1] 1 2 3 4 5
+Levels: 1 2 3 4 5
+null device 
+          1 
+[1] "cluster 1 started"
+[1] "cluster 2 started"
+[1] "cluster 3 started"
+[1] "cluster 4 started"
+[1] "cluster 5 started"
