@@ -1,0 +1,146 @@
+######################
+## Global variables ##
+######################
+
+samples: ["C1","C2", "C3", "Early1", "Early2", "Early3"]
+
+#################
+## Directories ##
+#################
+
+directories:
+    base: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts
+    original_data: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/processed_GEO_data
+    results: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA
+    logs: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_logs
+
+#############
+## Scripts ##
+#############
+
+scripts:
+    # Basic processing
+    create_seurat: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/processing/1_create_seurat_rna.R
+    qc: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/processing/2_qc.R
+    seurat_to_sce: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/processing/3_seurat_to_SCE.R
+    doublet_detection: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/processing/4_doublet_detection.R
+    parse_doublets: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/processing/5_parse_sample_metadata_after_doublets.R
+    plot_stats_per_sample: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/processing/6_plot_stats.R
+
+    # Dimensionality reduction
+    dimensionality_reduction: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/dimensionality_reduction/dimensionality_reduction.R
+
+    # Clustering
+    clustering: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/clustering/clustering.R
+
+    # Pseudobulk
+    create_pseudobulk_replicates: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/pseudobulk/pseudobulk_rna_with_replicates.R
+
+    # Differential expression analysis
+    differential_expression_pseudobulk: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/differential/differential_expression_pseudobulk.R
+
+    # Differential expression analysis
+    convert_sce_to_anndata: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/velocity/convert_SingleCellExperiment_to_anndata.R
+
+################
+## Parameters ##
+################
+
+qc:
+    min_nFeature_RNA: 200
+    max_nFeature_RNA: 7000
+    percent_mt: 35
+    percent_rib: 30
+    cutoff_nFeature_RNA : 8000
+    cutoff_mt : 60
+    cutoff_rib : 50
+
+doublet_detection:
+    doublet_score_threshold: 1.25
+
+dimensionality_reduction:
+    npcs: 15
+    features: 2500
+    n_neighbors: 50
+    min_dist: 0.25
+    vars_to_regress: [ "nFeature_RNA"]
+    batch_variable: [ "None" ]
+    samples: [ "nodiff", "all" ]
+    colour_by: [ "sample", "nFeature_RNA", "nCount_RNA"]
+
+clustering:
+    npcs: 15
+    features: 2500
+    n_neighbors: 50
+    min_dist: 0.25
+    n_neighbors_clusters: [ 15, 50 ]
+    resolution: [ 0.25, 0.15 ]
+    vars_to_regress: [ "nFeature_RNA" ]
+    # order_clust: [ 1, 2, 3, 5, 6, 4 ]
+    order_clust: [ 1, 2, 3, 4, 5, 6 ]
+    batch_variable: [ "None" ]
+    samples: [ "nodiff", "all" ]
+    colour_by: [ "sample", "nFeature_RNA", "nCount_RNA"]
+
+create_pseudobulk_replicates:
+    nrep: 5
+    min_cells: 25
+    fraction_cells_per_replicate: 0.30
+    n_neighbors_clusters: 15
+    resolution: 0.25
+    group_by: "cluster"
+    samples: "nodiff"
+    batch_variable: "SeqRun"
+
+differential_expression_pseudobulk:
+    n_neighbors_clusters: 15
+    resolution: 0.25
+    n_gene_clusters: 7
+    cluster_ids: [ 1, 2, 3, 4, 5]
+    order_clust: [ 3, 1, 6, 7, 2, 4, 5 ]
+    # order_clust: [ 1, 2, 3, 4, 5, 6, 7 ]
+    group_by: "cluster"
+    samples: "nodiff"
+    batch_variable: "SeqRun"
+
+convert_sce_to_anndata:
+    samples: ["nodiff", "all"]
+
+###########
+## Slurm ##
+###########
+
+slurm:  # memory in MB
+    create_seurat: 
+        memory: 50000
+        threads: 1
+    qc: 
+        memory: 3000
+        threads: 1
+    seurat_to_sce:
+        memory: 50000
+        threads: 1
+    doublet_detection:
+        memory: 25000
+        threads: 1
+    parse_doublet_results:
+        memory: 2000
+        threads: 1
+    plot_stats_per_sample:
+        threads: 1
+        memory: 15000
+    dimensionality_reduction_sce:
+        memory: 20000
+        threads: 1
+    clustering:
+        memory: 20000
+        threads: 1
+    create_pseudobulk_replicates:
+        memory: 20000
+        threads: 1
+    differential_expression_pseudobulk:
+        memory: 20000
+        threads: 1
+    convert_sce_to_anndata:
+        memory: 20000
+        threads: 1
