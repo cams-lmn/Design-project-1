@@ -1,0 +1,25 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Job stats:
+job                  count    min threads    max threads
+-----------------  -------  -------------  -------------
+doublet_detection        1              1              1
+total                    1              1              1
+
+Select jobs to execute...
+
+[Fri Dec  6 22:35:44 2024]
+rule doublet_detection:
+    input: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/SingleCellExperiment.rds, /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/qc/sample_metadata_after_cellstate.txt.gz, /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/scripts/processing/4_doublet_detection.R
+    output: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/doublet_detection/doublets_all.txt.gz
+    log: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_logs/doublet_detection_all.log
+    jobid: 0
+    reason: Missing output files: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/doublet_detection/doublets_all.txt.gz
+    resources: tmpdir=/tmp, mem_mb=25000, mem_mib=23842
+
+[Fri Dec  6 22:39:39 2024]
+Finished job 0.
+1 of 1 steps (100%) done
+Complete log: .snakemake/log/2024-12-06T223535.773418.snakemake.log
