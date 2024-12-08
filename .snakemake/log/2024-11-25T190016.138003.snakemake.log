@@ -1,0 +1,31 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Job stats:
+job                count
+---------------  -------
+all                    1
+run_hello_world        1
+total                  2
+
+Select jobs to execute...
+
+[Mon Nov 25 19:00:20 2024]
+rule run_hello_world:
+    output: hello_world_plot.png
+    jobid: 1
+    reason: Missing output files: hello_world_plot.png
+    resources: tmpdir=/tmp
+
+[Mon Nov 25 19:00:21 2024]
+Error in rule run_hello_world:
+    jobid: 1
+    output: hello_world_plot.png
+    shell:
+        Rscript hello_world.R
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message
+Complete log: .snakemake/log/2024-11-25T190016.138003.snakemake.log
