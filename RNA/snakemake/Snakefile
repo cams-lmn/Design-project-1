@@ -1,0 +1,303 @@
+import os
+from re import search
+import getpass
+
+############
+## Config ##
+############
+
+configfile: "config.yaml"
+
+###########
+## Rules ##
+###########
+
+rule all:
+    input:
+        # Create Seurat and SingleCellExperiment objects
+        config["directories"]["results"]+"/seurat.rds",
+        config["directories"]["results"]+"/SingleCellExperiment.rds",
+
+        # QC
+        config["directories"]["results"]+"/qc/sample_metadata_after_qc.txt.gz",
+        config["directories"]["results"]+"/doublet_detection/sample_metadata_after_doublets.txt.gz",
+
+         # Plot stats
+        config["directories"]["results"]+"/stats/ncells_per_sample.pdf",
+
+        # Dimensionality reduction
+        expand("%s/dimensionality_reduction/batch_correction_{batch_variable}/pca_features{dimred_sce_features}_pcs{dimred_sce_npcs}_{incl_samples}.txt.gz" % (config["directories"]["results"]),
+            dimred_sce_features = config["dimensionality_reduction"]["features"],
+            batch_variable = config["dimensionality_reduction"]["batch_variable"],
+            dimred_sce_npcs = config["dimensionality_reduction"]["npcs"],
+            incl_samples = config["dimensionality_reduction"]["samples"]
+        ),
+
+        # Clustering
+        expand("%s/clustering/batch_correction_{batch_variable}/cluster_neighclust{neigh_clust}_res{res}_{incl_samples}/sample_metadata_after_clustering.txt.gz" % (config["directories"]["results"]),
+            batch_variable = config["clustering"]["batch_variable"],
+            neigh_clust = config["clustering"]["n_neighbors_clusters"],
+            res = config["clustering"]["resolution"],
+            incl_samples = config["dimensionality_reduction"]["samples"]
+        ),
+
+        # Create pseudobulk replicates
+        expand("%s/pseudobulk/{group_by}_{batch_variable}_neighclust{neigh_clust}_res{res}_{incl_samples}/SingleCellExperiment_pseudobulk_with_replicates.rds" % config["directories"]["results"],
+            group_by=config["create_pseudobulk_replicates"]["group_by"],
+            batch_variable = config["create_pseudobulk_replicates"]["batch_variable"],
+            neigh_clust = config["create_pseudobulk_replicates"]["n_neighbors_clusters"],
+            res = config["create_pseudobulk_replicates"]["resolution"],
+            incl_samples = config["create_pseudobulk_replicates"]["samples"]
+        ),
+
+        # Differential expression analysis
+        expand(config["directories"]["results"]+"/pseudobulk/{group_by}_{batch_variable}_neighclust{neigh_clust}_res{res}_{incl_samples}/DE_res/heatmap_{n_gene_clusters}geneclusters_final.pdf",
+            group_by=config["differential_expression_pseudobulk"]["group_by"],
+            batch_variable = config["differential_expression_pseudobulk"]["batch_variable"],
+            neigh_clust = config["differential_expression_pseudobulk"]["n_neighbors_clusters"],
+            res = config["differential_expression_pseudobulk"]["resolution"],
+            n_gene_clusters = config["differential_expression_pseudobulk"]["n_gene_clusters"],
+            incl_samples = config["differential_expression_pseudobulk"]["samples"]
+        )
+
+##################################################
+## Load count matrices and create Seurat object ##
+##################################################
+
+rule create_seurat:
+    input:
+        script=config["scripts"]["create_seurat"],
+        input_dir=config["directories"]["original_data"]
+    output:
+        seurat=config["directories"]["results"]+"/seurat.rds",
+        metadata=config["directories"]["results"]+"/metadata.txt.gz"
+    params:
+        outdir=config["directories"]["results"],
+        samples=expand("{sample}", sample=config["samples"])
+    log:
+        config["directories"]["logs"]+"/create_seurat.log"
+    threads:
+        config["slurm"]["create_seurat"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["create_seurat"]["memory"]
+    shell:
+        "Rscript {input.script} --inputdir {input.input_dir} --outdir {params.outdir} --samples {params.samples} > {log}"
+        
+#####################
+## Quality control ##
+#####################
+
+rule qc:
+    input:
+    	metadata=rules.create_seurat.output.metadata,
+        script=config["scripts"]["qc"]
+    output:
+        qc_metrics_histogram=config["directories"]["results"]+"/qc/qc_metrics_histogram.pdf",
+        metadata=config["directories"]["results"]+"/qc/sample_metadata_after_qc.txt.gz"
+    params:
+        sample = expand("{sample}", sample=config["samples"]),
+        min_nFeature_RNA = config["qc"]["min_nFeature_RNA"],
+        percent_mt = config["qc"]["percent_mt"],
+        percent_rib = config["qc"]["percent_rib"],
+        cutoff_nFeature_RNA = config["qc"]["cutoff_nFeature_RNA"],
+        cutoff_mt = config["qc"]["cutoff_mt"],
+        cutoff_rib = config["qc"]["cutoff_rib"],
+        outdir = config["directories"]["results"]+"/qc"
+    log:
+        config["directories"]["logs"]+"/qc.log"
+    threads:
+        config["slurm"]["qc"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["qc"]["memory"]
+    shell:
+        "Rscript {input.script} --metadata {input.metadata} --outputdir {params.outdir} --samples {params.sample} --min_nFeature_RNA {params.min_nFeature_RNA} --ribosomal_percent_RNA {params.percent_rib} --mitochondrial_percent_RNA {params.percent_mt} --cutoff_plot_nFeature_RNA {params.cutoff_nFeature_RNA} --cutoff_plot_mito {params.cutoff_mt} --cutoff_plot_ribo {params.cutoff_rib} > {log}"
+        
+###################################################
+## Convert Seurat object to SingleCellExperiment ##
+###################################################
+
+rule seurat_to_sce:
+    input:
+        seurat = rules.create_seurat.output.seurat,
+    	metadata = rules.qc.output.metadata,
+        script = config["scripts"]["seurat_to_sce"],
+    output:
+        sce_out = config["directories"]["results"]+"/SingleCellExperiment.rds",
+        metadata = config["directories"]["results"]+"/qc/sample_metadata_after_cellstate.txt.gz"
+    params:
+        sample = expand("{sample}", sample=config["samples"])
+    log:
+        config["directories"]["logs"]+"/seurat_to_sce.log"
+    threads:
+        config["slurm"]["seurat_to_sce"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["seurat_to_sce"]["memory"]
+    shell:
+        "Rscript {input.script} --samples {params.sample} --seurat {input.seurat} --metadata {input.metadata} --metadata_out {output.metadata} --outfile {output.sce_out} > {log}"
+
+#######################
+## Doublet detection ##
+#######################
+
+rule doublet_detection:
+    input:
+        sce = rules.seurat_to_sce.output.sce_out,
+        metadata = rules.seurat_to_sce.output.metadata,
+        script = config["scripts"]["doublet_detection"]
+    output:
+        outfile=config["directories"]["results"]+"/doublet_detection/doublets_all.txt.gz"
+    params:
+        samples = config["samples"]
+    log:
+        config["directories"]["logs"]+"/doublet_detection_all.log"
+    threads:
+        config["slurm"]["doublet_detection"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["doublet_detection"]["memory"]
+    shell:
+        "Rscript {input.script} --samples {params.samples} --metadata {input.metadata} --sce {input.sce} --outfile {output} > {log}"
+
+rule parse_doublet_results:
+    input:
+        metadata = rules.seurat_to_sce.output.metadata,
+        script = config["scripts"]["parse_doublets"],
+        doublet_files=expand(config["directories"]["results"]+"/doublet_detection/doublets_all.txt.gz",
+        sample=config["samples"], doublet_score_threshold=config["doublet_detection"]["doublet_score_threshold"])
+    output:
+        outfile=config["directories"]["results"]+"/doublet_detection/sample_metadata_after_doublets.txt.gz"
+    log:
+        config["directories"]["logs"]+"parse_doublet_results.log"
+    threads:
+        config["slurm"]["parse_doublet_results"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["parse_doublet_results"]["memory"]
+    shell:
+        "Rscript {input.script} --metadata {input.metadata} --doublet_files {input.doublet_files} --outfile {output} > {log}"
+
+################
+## Plot stats ##
+################
+
+rule plot_stats_per_sample:
+    input:
+        sce = rules.seurat_to_sce.output.sce_out,
+        metadata = rules.parse_doublet_results.output,
+        script = config["scripts"]["plot_stats_per_sample"]
+    output:
+        config["directories"]["results"]+"/stats/ncells_per_sample.pdf"
+    params:
+        outdir = config["directories"]["results"]+"/stats",
+        samples = expand("{sample}", sample=config["samples"])
+    log:
+        config["directories"]["logs"]+"/plot_stats_per_sample.log"
+    threads:
+        config["slurm"]["plot_stats_per_sample"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["plot_stats_per_sample"]["memory"]
+    shell:
+        "Rscript {input.script} --metadata {input.metadata} --sce {input.sce} --samples {params.samples} --outdir {params.outdir} > {log}"
+
+##############################
+## Dimensionality reduction ##
+##############################
+
+rule dimensionality_reduction:
+    input:
+        script = config["scripts"]["dimensionality_reduction"],
+        sce = rules.seurat_to_sce.output.sce_out,
+        metadata = rules.parse_doublet_results.output
+    output:
+        config["directories"]["results"]+"/dimensionality_reduction/batch_correction_{batch_variable}/pca_features{dimred_sce_features}_pcs{dimred_sce_npcs}_{incl_samples}.txt.gz"
+    params:
+        outdir = config["directories"]["results"]+"/dimensionality_reduction/batch_correction_{batch_variable}",
+        n_neighbors = config["dimensionality_reduction"]["n_neighbors"],
+        min_dist = config["dimensionality_reduction"]["min_dist"],
+        vars_to_regress = config["dimensionality_reduction"]["vars_to_regress"],
+        colour_by = config["dimensionality_reduction"]["colour_by"],
+        samples = config["samples"]
+    log:
+        config["directories"]["logs"]+"/dimensionality_reduction_features{dimred_sce_features}_pcs{dimred_sce_npcs}_batch_correction_{batch_variable}_{incl_samples}.log"
+    threads:
+        config["slurm"]["dimensionality_reduction_sce"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["dimensionality_reduction_sce"]["memory"]
+    shell:
+        "Rscript {input.script} --incl_samples {wildcards.incl_samples} --sce {input.sce} --metadata {input.metadata} --npcs {wildcards.dimred_sce_npcs} --samples {params.samples} --features {wildcards.dimred_sce_features} --batch_variable {wildcards.batch_variable} --n_neighbors {params.n_neighbors} --min_dist {params.min_dist} --colour_by {params.colour_by} --outdir {params.outdir} > {log}"
+
+################
+## Clustering ##
+################
+
+rule clustering:
+    input:
+        script = config["scripts"]["clustering"],
+        sce = rules.seurat_to_sce.output.sce_out,
+        metadata = rules.parse_doublet_results.output
+    output:
+        config["directories"]["results"]+"/clustering/batch_correction_{batch_variable}/cluster_neighclust{neigh_clust}_res{res}_{incl_samples}/sample_metadata_after_clustering.txt.gz"
+    params:
+        outdir = config["directories"]["results"]+"/dimensionality_reduction/batch_correction_{batch_variable}",
+        clusterdir = config["directories"]["results"]+"/clustering/batch_correction_{batch_variable}",
+        n_neighbors = config["clustering"]["n_neighbors"],
+        min_dist = config["clustering"]["min_dist"],
+        npcs = config["clustering"]["npcs"],
+        features = config["clustering"]["features"],
+        vars_to_regress = config["clustering"]["vars_to_regress"],
+        colour_by = config["clustering"]["colour_by"],
+        order_clust = config["clustering"]["order_clust"],
+        samples = config["samples"]
+    log:
+        config["directories"]["logs"]+"/clustering_neighclust{neigh_clust}_res{res}_batch_correction_{batch_variable}_{incl_samples}.log"
+    threads:
+        config["slurm"]["clustering"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["clustering"]["memory"]
+    shell:
+        "Rscript {input.script} --incl_samples {wildcards.incl_samples} --sce {input.sce} --metadata {input.metadata} --reorder_clusters {params.order_clust} --npcs {params.npcs} --samples {params.samples} --features {params.features} --n_neighbors_clusters {wildcards.neigh_clust} --resolution {wildcards.res} --batch_variable {wildcards.batch_variable} --n_neighbors {params.n_neighbors} --min_dist {params.min_dist} --colour_by {params.colour_by} --outdir {params.outdir} --clusterdir {params.clusterdir} > {log}"
+
+################
+## Pseudobulk ##
+################
+
+rule pseudobulk_rna_with_replicates:
+    input:
+        sce = rules.seurat_to_sce.output.sce_out,
+        metadata = rules.clustering.output,
+        script = config["scripts"]["create_pseudobulk_replicates"]
+    output:
+        sce = config["directories"]["results"]+"/pseudobulk/{group_by}_{batch_variable}_neighclust{neigh_clust}_res{res}_{incl_samples}/SingleCellExperiment_pseudobulk_with_replicates.rds",
+        cell2replicate = config["directories"]["results"]+"/pseudobulk/{group_by}_{batch_variable}_neighclust{neigh_clust}_res{res}_{incl_samples}/cell2replicate.txt.gz"
+    params:
+        min_cells = config["create_pseudobulk_replicates"]["min_cells"],
+        nrep = config["create_pseudobulk_replicates"]["nrep"],
+        fraction_cells_per_replicate = config["create_pseudobulk_replicates"]["fraction_cells_per_replicate"],
+        neigh_clust = config["create_pseudobulk_replicates"]["n_neighbors_clusters"],
+        res = config["create_pseudobulk_replicates"]["resolution"],
+        outdir = config["directories"]["results"]+"/pseudobulk/{group_by}_{batch_variable}_neighclust{neigh_clust}_res{res}_{incl_samples}"
+    log:
+        config["directories"]["logs"]+"/pseudobulk_rna_with_replicates_{group_by}_{batch_variable}_neighclust{neigh_clust}_res{res}_{incl_samples}.log"
+    threads:
+        config["slurm"]["create_pseudobulk_replicates"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["create_pseudobulk_replicates"]["memory"]
+    shell:
+        "Rscript {input.script} --incl_samples {wildcards.incl_samples} --sce {input.sce} --metadata {input.metadata} --group_by {wildcards.group_by} --n_neighbors_clusters {wildcards.neigh_clust} --nrep {params.nrep} --min_cells {params.min_cells} --fraction_cells_per_replicate {params.fraction_cells_per_replicate} --resolution {wildcards.res} --outdir {params.outdir} > {log}"
+
+rule differential_expression_pseudobulk:
+    input:
+        script = config["scripts"]["differential_expression_pseudobulk"],
+        sce = rules.pseudobulk_rna_with_replicates.output.sce
+    output:
+        config["directories"]["results"]+"/pseudobulk/{group_by}_{batch_variable}_neighclust{neigh_clust}_res{res}_{incl_samples}/DE_res/heatmap_{n_gene_clusters}geneclusters_final.pdf"
+    params:
+        cluster_ids = config["differential_expression_pseudobulk"]["cluster_ids"],
+        order_gene_clusters = config["differential_expression_pseudobulk"]["order_clust"],
+        outdir = config["directories"]["results"]+"/pseudobulk/{group_by}_{batch_variable}_neighclust{neigh_clust}_res{res}_{incl_samples}/DE_res"
+    log:
+         config["directories"]["logs"]+"/differential_expression_pseudobulk_{group_by}_{batch_variable}_neighclust{neigh_clust}_res{res}_heatmap_{n_gene_clusters}geneclusters_{incl_samples}.log"
+    threads:
+        config["slurm"]["differential_expression_pseudobulk"]["threads"]
+    resources:
+        mem_mb = config["slurm"]["differential_expression_pseudobulk"]["memory"]
+    shell:
+        "Rscript {input.script} --incl_samples {wildcards.incl_samples} --n_clusters {wildcards.n_gene_clusters} --order_gene_clusters {params.order_gene_clusters} --sce {input.sce} --cluster_ids {params.cluster_ids} --outdir {params.outdir} > {log}"

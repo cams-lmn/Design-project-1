@@ -1,0 +1,331 @@
+######################
+## Global variables ##
+######################
+
+samples: ["C1","C2", "C3", "Early1", "Early2", "Early3"]
+
+#################
+## Directories ##
+#################
+
+directories:
+    base: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts
+    rna: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA
+    atac: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/archR
+    archr_directory: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/archR
+    results: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC
+    logs: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC_logs
+
+###############
+## Resources ##
+###############
+
+resources:
+    python: /data/gent/482/vsc48275/miniconda3/envs/design/bin/python
+    TFs_file: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/MOUSE_TF_aertslab.txt
+
+#############
+## Scripts ##
+#############
+
+scripts:
+    # Mofa
+    prepare_mofa: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/mofa/1_prepare_mofa.R
+    run_mofa: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/mofa/2_run_mofa.R
+    plot_mofa: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/mofa/3_plot_mofa.R
+
+    # Clustering
+    clustering: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/clustering/clustering.R
+
+    # Pseudobulk
+    create_pseudobulk_rna: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/pseudobulk/pseudobulk_rna.R
+    create_pseudobulk_atac: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/pseudobulk/pseudobulk_atac.R
+    create_pseudobulk_replicates: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/pseudobulk/pseudobulk_with_replicates.R
+
+    # Differential analysis
+    differential_analysis_pseudobulk: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/differential/differential_analysis.R
+    marker_TFs: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/differential/marker_TFs.R
+    gene_set_analysis: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/differential/gene_set_analysis.R
+
+    # Create BigWig files
+    create_bigwig: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/processing/create_bigwig.R
+
+    # Metacells
+    convert_sce_to_anndata: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/metacells/1_convert_sce_to_anndata.R
+    create_metacells: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/metacells/2_create_metacells.py
+    aggregate_metacells: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/metacells/3_aggregate_metacells.R
+    metacells_stats: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/metacells/4_metacells_stats.R
+
+    # RNA vs Acc
+    cor_expr_vs_acc_pseudobulk: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/rna_vs_acc/cor_expr_vs_acc_pseudobulk.R
+    cor_expr_vs_acc_metacells: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/rna_vs_acc/cor_expr_vs_acc_metacells.R
+
+    cor_TFexpr_vs_acc_pseudobulk: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/rna_vs_acc/cor_TFexpr_vs_acc_pseudobulk.R
+    cor_TFexpr_vs_acc_metacells: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/rna_vs_acc/cor_TFexpr_vs_acc_metacells.R
+
+    # Virtual ChipSeq
+    virtual_chipseq_pseudobulk: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/virtual_chipseq/create_virtual_chipseq_library_pseudobulk.R
+    virtual_chipseq_metacells: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/virtual_chipseq/create_virtual_chipseq_library_metacells.R
+    compare_virtual_chipseq: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/virtual_chipseq/virtual_chipseq_compare_pseudobulk_vs_metacells.R
+
+    # RNA vs Chromvar
+    cor_rna_vs_chromvar_pseudobulk: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/rna_vs_chromvar/cor_rna_vs_chromvar_per_gene_pseudobulk.R
+    rna_vs_chromvar_pseudobulk_per_cluster: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/rna_vs_chromvar/rna_vs_chromvar_pseudobulk_per_cluster.R
+
+    cor_rna_vs_chromvar_chip_pseudobulk: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/rna_vs_chromvar_chip/cor_rna_vs_chromvar_chip_per_gene_pseudobulk.R
+    rna_vs_chromvar_chip_pseudobulk_per_cluster: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/rna_vs_chromvar_chip/rna_vs_chromvar_chip_pseudobulk_per_cluster.R
+
+    # Link TF to genes
+    link_TF2genes_chip: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/GRN/link_TF2genes_virtual_chip.R
+
+    # GRN
+    build_GRN_metacells_trajectory: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/GRN/build_GRN_metacells_trajectory.R
+    plot_GRN_metacells_trajectory: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/GRN/plot_GRN_metacells_trajectory.R
+    plot_UMAP_GRN_metacells_trajectory: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/GRN/plot_UMAP_GRN_metacells_trajectory.R
+    GRN_interaction_plots: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/scripts/GRN/GRN_interaction_plots.R
+
+################
+## Parameters ##
+################
+
+prepare_mofa:
+    atac_matrix: "PeakMatrix"
+    atac_matrix_file: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/archR/Matrices/PeakMatrix_summarized_experiment.rds"
+    nfeatures_atac: 20000
+    nfeatures_rna: 2500
+
+run_mofa:
+    n_factors: 30
+    incl_samples: [ "all" ]
+
+plot_mofa:
+    n_factors: 25
+    incl_samples: [ "all" ]
+
+clustering:
+    n_factors: 25
+    am_clusters: 12
+    reorder_clusters: [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    incl_samples: "all"
+    atac_matrix: "PeakMatrix"
+
+create_pseudobulk_rna:
+    sce: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/SingleCellExperiment.rds"
+    group_by: [ "cluster" ]
+    normalisation_method: "cpm"
+
+create_pseudobulk_atac:
+    group_by: "cluster"
+    matrix: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    normalisation_method: "cpm"
+
+create_pseudobulk_replicates:
+    sce: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/SingleCellExperiment.rds"
+    atac_matrices: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    fraction_cells_per_replicate: 0.30
+    min_cells: 25
+    nrep: 5
+    group_by: "cluster"
+
+differential_analysis_pseudobulk:
+    min_expr: 4
+    min_cdr: 0.30
+    cluster_ids: [ 1, 2, 3, 4, 5, 6 ]
+    matrix: "RNA" # [ "RNA", "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    group_by: "cluster"
+
+gene_set_analysis:
+    matrix: [ "RNA", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    group_by: "cluster"
+
+create_bigwig:
+    norm_method: "ReadsInTSS"
+    min_cells: 100
+    tile_size: 100
+    group_by: "cluster"
+    metadata: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/clustering/PeakMatrix/sample_metadata_all_after_clustering.txt.gz"
+
+convert_sce_to_anndata:
+    sce: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/SingleCellExperiment.rds"
+    incl_samples: "all"
+
+create_metacells:
+    metadata: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/doublet_detection/sample_metadata_after_doublets.txt.gz"
+    percent_metacells: 0.007
+    n_features: 1500
+    n_pcs: 15
+    incl_samples: "all"
+
+aggregate_metacells:
+    metadata_rna: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/doublet_detection/sample_metadata_after_doublets.txt.gz"
+    metadata_atac: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/archR/qc/sample_metadata_after_qc.txt.gz"
+    metadata_cluster: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA_ATAC/clustering/PeakMatrix/sample_metadata_all_after_clustering.txt.gz"
+    sce: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/SingleCellExperiment.rds"
+    matrices: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    incl_samples: "all"
+    metacell_min_reads: 25000 
+    metacell_min_frags: 150000
+
+metacells_stats:
+    incl_samples: "all"
+
+marker_TFs:
+    matrix: [ "RNA" ]
+    incl_samples: "all"
+    group_by: "cluster"
+
+cor_expr_vs_acc_pseudobulk:
+    which_clusters: [ "all"]
+    n_clusters: 9
+    min_cor: [ 0.25, 0.5 ]
+    distance: 50000 # 5e4
+    max_pval: 0.01
+    force_rerun: FALSE
+
+cor_expr_vs_acc_metacells:
+    which_clusters: "all"
+    n_clusters: 9
+    min_cor: [ 0.25, 0.5 ]
+    distance: 50000 # 5e4
+    max_pval: 0.01
+    force_rerun: FALSE
+
+cor_TFexpr_vs_acc_pseudobulk:
+    which_clusters: [ "all"]
+    force_rerun: FALSE
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+
+cor_TFexpr_vs_acc_metacells:
+    which_clusters: "all"
+    force_rerun: FALSE
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+
+virtual_chipseq_pseudobulk:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+    min_number_peaks: 50
+
+virtual_chipseq_metacells:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+    min_number_peaks: 50
+
+compare_virtual_chipseq:
+    motif_ann: [ "CISBP", "JASPAR2020" ]
+    min_chip_score: 0.06
+
+link_TF2genes_chip:
+    motif_ann: [ "CISBP", "JASPAR2020"]
+    max_distance: 50000  #5e4
+    min_chip_score: 0.15
+
+build_GRN_metacells_trajectory:
+    trajectory_name: ["N2P", "superclusterA", "superclusterB", "superclusterC"]
+    max_distance: 50000  #5e4
+    min_chip_score: [0.15]
+    full: [ "TF"]
+
+plot_GRN_metacells_trajectory:
+    trajectory_name: "N2P"
+    force: TRUE
+    min_chip_score: [0.15]
+    min_coef: 0.25
+    max_pval: 0.10
+    full: ["TF"]
+
+plot_UMAP_GRN_metacells_trajectory:
+    trajectory_name: ["N2P", "superclusterA", "superclusterB", "superclusterC"]
+    force: TRUE
+    min_chip_score: [0.15]
+    max_pval: 0.10
+    min_coef: 0.25
+    max_distance: 50000  #5e4
+    full: ["TF"]
+
+GRN_interaction_plots:
+    trajectory_name: "N2P"
+    min_chip_score: [0.15]
+    min_coef: 0.25
+    full: ["TF"]
+
+###########
+## Slurm ##
+###########
+
+slurm:  # memory in MB
+    prepare_mofa:
+        memory: 50000
+        threads: 1
+    run_mofa:
+        memory: 50000
+        threads: 1
+    plot_mofa:
+        memory: 50000
+        threads: 1
+    clustering:
+        memory: 50000
+        threads: 1
+    create_pseudobulk_rna:
+        memory: 50000
+        threads: 1
+    create_pseudobulk_atac:
+        memory: 50000
+        threads: 1
+    create_pseudobulk_replicates:
+        memory: 50000
+        threads: 1
+    differential_analysis_pseudobulk:
+        memory: 50000
+        threads: 1
+    gene_set_analysis:
+        memory: 50000
+        threads: 1
+    marker_TFs:
+        memory: 50000
+        threads: 1
+    create_bigwig:
+        memory: 50000
+        threads: 1
+    convert_sce_to_anndata:
+        memory: 50000
+        threads: 1
+    create_metacells:
+        memory: 50000
+        threads: 20
+    metacells_stats:
+        memory: 50000
+        threads: 1
+    cor_expr_vs_acc_pseudobulk:
+        memory: 50000
+        threads: 1
+    cor_expr_vs_acc_metacells:
+        memory: 50000
+        threads: 1
+    cor_TFexpr_vs_acc_pseudobulk:
+        memory: 50000
+        threads: 1
+    cor_TFexpr_vs_acc_metacells:
+        memory: 50000
+        threads: 1
+    virtual_chipseq_pseudobulk:
+        memory: 50000
+        threads: 10
+    virtual_chipseq_metacells:
+        memory: 50000
+        threads: 10
+    compare_virtual_chipseq:
+        memory: 50000
+        threads: 1
+    link_TF2genes_chip:
+        memory: 50000
+        threads: 1
+    build_GRN_metacells_trajectory:
+        memory: 50000
+        threads: 40
+    plot_GRN_metacells_trajectory:
+        memory: 50000
+        threads: 1
+    plot_UMAP_GRN_metacells_trajectory:
+        memory: 50000
+        threads: 1
+    GRN_interaction_plots:
+        memory: 50000
+        threads: 1

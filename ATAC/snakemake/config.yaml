@@ -1,0 +1,208 @@
+######################
+## Global variables ##
+######################
+
+samples: ["C1", "C2", "C3", "Early1", "Early2", "Early3"]
+
+#################
+## Directories ##
+#################
+
+directories:
+    base: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts
+    original_data: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/ATAC_fragments
+    archr_directory: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/archR
+    results: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/archR
+    logs: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC_logs
+    
+#############
+## Scripts ##
+#############
+
+scripts:
+    # Basic processing
+    create_arrow_files: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/processing/0_create_arrow_files.R
+    create_archr_project: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/processing/1_create_archr_project.R
+    create_archr_metadata: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/processing/2_create_archr_metadata.R
+
+     # QC
+    qc_archr: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/processing/3_qc_archr.R
+
+    # Add group coverages
+    add_group_coverage: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/pseudobulk/1_add_group_coverage.R
+
+    # Peak calling
+    peak_calling: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/peak_calling/1_peak_calling.R
+    link_peaks_to_genes: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/peak_calling/2_link_peaks2genes.R
+    add_background_peaks: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/peak_calling/3_add_background_peaks.R
+
+    # Dimensionality reduction
+    dimensionality_reduction: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/dimensionality_reduction/dimensionality_reduction.R
+
+    # Clustering
+    clustering: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/clustering/clustering.R
+
+    # Add gene scores
+    add_gene_scores: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/gene_scores/add_gene_scores.R
+
+    # Save matrices
+    save_atac_matrices: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/processing/save_atac_matrices.R
+
+    # Pseudobulk
+    pseudobulk_atac_with_replicates: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/pseudobulk/pseudobulk_atac_with_replicates.R
+
+    # Differential expression analysis
+    differential_accessibility_pseudobulk: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/differential/differential_accessibility_pseudobulk.R
+
+    # Add motifs
+    add_motif_annotation: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/scripts/processing/add_motif_annotation.R
+
+###############
+## Resources ##
+###############
+
+resources:
+    genome: mm10
+    cell_metadata: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/clustering/batch_correction_None/cluster_neighclust15_res0.35_all/sample_metadata_after_clusteringRNA.txt.gz
+    gene_metadata: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/Mouse_genes_BioMart.txt
+
+################
+## Parameters ##
+################
+
+create_arrow_files:
+    min_fragments: 1000
+    max_fragments: 10000000
+    min_tss_score: 1
+
+qc_archr:
+    min_tss_enrichment : 1
+    max_tss_enrichment : 40
+    min_number_fragments : 1000
+    max_number_fragments : 1000000 # 1e6
+    max_blacklist_ratio : 0.03
+    cutoff_number_fragments : 1584893 # remove massive outliers for plotting
+    cutoff_tss_enrichment: 40 # remove massive outliers for plotting
+    metadata_rna: /kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/RNA/clustering/batch_correction_None/cluster_neighclust15_res0.35_all/sample_metadata_after_clusteringRNA.txt.gz
+
+add_group_coverage:
+    group_by: "sample"
+    min_cells: 100
+    max_cells: 5000
+
+peak_calling:
+    group_by: "sample"
+    pathToMacs2: "/apps/gent/RHEL9/cascadelake-ib/software/MACS2/2.2.9.1-foss-2023a/bin/macs2" # "/apps/gent/RHEL9/zen3x-ib/software/MACS2/2.2.9.1-foss-2023a/bin/macs2"
+    pvalue_cutoff: 0.001
+    extend_summits: 300
+    min_cells: 100
+
+link_peaks_to_genes:
+    gene_window: 100000 # 1e5
+
+add_background_peaks:
+    method: "chromVAR"
+    number_background_peaks: 50
+
+dimensionality_reduction:
+    matrix: "PeakMatrix"
+    ndims: 15
+    nfeatures: 20000
+    umap_n_neighbors: 10
+    umap_min_dist: 0.1
+    batch_variable: [ "None" ]
+    batch_method: "Harmony"
+    colour_by: ["RNA_cluster", "sample", "TSSEnrichment_atac", "log_nFrags_atac"]
+    incl_samples: [ "all"]
+
+clustering:
+    matrix: "PeakMatrix"
+    ndims: 15
+    nfeatures: 20000
+    umap_n_neighbors: 10
+    umap_min_dist: 0.1
+    resolution: 0.95
+    batch_variable: "None"
+    batch_method: "Harmony"
+    incl_samples: "all"
+    reorder_clusters: [ 1, 2, 3, 4, 5, 6 ]
+
+save_atac_matrices:
+    matrix: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+
+pseudobulk_atac_with_replicates:
+    matrix: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    group_by: "Clusters"
+    fraction_cells_per_replicate: 0.30
+    min_cells: 25
+    nrep: 5
+    metadata: "/kyukon/data/gent/courses/2024/design_project_C003698/groups/group01/ATAC/archR/clustering/PeakMatrix/batch_correction_None_Harmony/cluster_res0.95_all/sample_metadata_after_clustering.txt.gz"
+    # the following parameters are decided after evaluating cluster results and determine which clustering will be used for downstream analysis
+    batch_variable: "None"
+    batch_method: "Harmony"
+    res: 0.95
+    incl_samples: "all"
+
+differential_accessibility_pseudobulk:
+    matrix: [ "PeakMatrix", "GeneScoreMatrix_TSS", "GeneScoreMatrix_distal" ]
+    group_by: "Clusters"
+    cluster_ids: [ "C1", "C2", "C3", "C4", "C5", "C6"]
+    logfc_cutoff: 1.00
+    fdr_cutoff: 0.01
+    min_cdr: 0.30
+
+add_motif_annotation:
+    motif_annotation: [ "CISBP", "JASPAR2020" ]
+    cutoff: 0.0001
+    width: 7
+
+###########
+## Slurm ##
+###########
+
+slurm:  # memory in MB
+    create_arrow_files: 
+        threads: 1
+        memory: 50000
+    create_archr_project:
+        threads: 10
+        memory: 5000
+    create_archr_metadata:
+        threads: 10
+        memory: 5000
+    qc_archr:
+        threads: 10
+        memory: 5000
+    add_group_coverage:
+        threads: 1
+        memory: 10000
+    peak_calling:
+        threads: 10
+        memory: 10000
+    link_peaks_to_genes:
+        threads: 1
+        memory: 10000
+    add_background_peaks:
+        threads: 1
+        memory: 10000
+    dimensionality_reduction:
+        threads: 1
+        memory: 55000
+    clustering:
+        threads: 1
+        memory: 55000
+    add_gene_scores:
+        threads: 10
+        memory: 55000
+    save_atac_matrices:
+        threads: 1
+        memory: 55000
+    pseudobulk_atac_with_replicates:
+        threads: 1
+        memory: 55000
+    differential_accessibility_pseudobulk:
+        threads: 1
+        memory: 55000
+    add_motif_annotation:
+        threads: 10
+        memory: 55000
